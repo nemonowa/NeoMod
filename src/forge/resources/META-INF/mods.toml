@@ -1,0 +1,14 @@
+# Forge 版 NeoMod (Mod Menu 本体のみ)。src/main/resources/fabric.mod.json と同じ jar に同居できる。
+modLoader="javafml"
+loaderVersion="[0,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="neo"
+version="${version}"
+displayName="NeoMods"
+authors="argonaute_nemo, Prospector, haykam821, gniftygnome, TerraformersMC, PrincessMelody"
+description='''Project-NEXUS (Mod Menu integrated)'''
+logoFile="icon.png"
+
+# Minecraft の版の依存は書かない: 古い Minecraft でも読み込み、ゲート (neo.compat.ForgeGate) が環境を見て、合わなければログだけ書いて何もしない。

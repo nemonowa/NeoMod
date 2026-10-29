@@ -1,0 +1,62 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "neo.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixinextras": {
+    "minVersion": "0.5.4"
+  },
+  "mixins": [
+    "MixinClientboundCustomPayloadPacket",
+    "MixinMinecraftServer"
+  ],
+  "client": [
+    "MixinAbstractContainerScreenSwitch",
+    "MixinAdvancementTab",
+    "MixinAdvancementTabType",
+    "MixinAdvancementWidget",
+    "MixinAdvancementsScreen",
+    "MixinAdvancementsScreenSwitch",
+    "MixinAvatarRendererSkinLayer",
+    "MixinBookViewScreenSwitch",
+    "MixinCameraCinematic",
+    "MixinCameraFreeLook",
+    "MixinCameraMapFullscreen",
+    "MixinCameraZoom",
+    "MixinClientPacketListener",
+    "MixinConfirmLinkScreenAccessor",
+    "MixinCustomHeadLayerSkinLayer",
+    "MixinFirstPersonHandsAndItems",
+    "MixinFirstPersonHandsAndItemsRenderer",
+    "MixinGuiCinematic",
+    "MixinGuiInventoryMove",
+    "MixinGuiLinkConfirmation",
+    "MixinHudCinematic",
+    "MixinItemStack",
+    "MixinKeyMapping",
+    "MixinKeyboardHandlerCinematic",
+    "MixinKeyboardHandlerInventoryMove",
+    "MixinLevelExtractor",
+    "MixinMapRenderer",
+    "MixinMinecraft",
+    "MixinMinecraftFreeLook",
+    "MixinModelPartSkinLayer",
+    "MixinMouseHandlerCinematic",
+    "MixinMouseHandlerFreeLook",
+    "MixinMouseHandlerZoom",
+    "MixinOptions",
+    "MixinPauseScreen",
+    "MixinPlayerHeadSpecialRendererSkinLayer",
+    "MixinPlayerModelSkinLayer",
+    "MixinScreen",
+    "MixinSkullBlockRenderStateSkinLayer",
+    "MixinSkullBlockRendererSkinLayer",
+    "MixinSkullModelSkinLayer",
+    "MixinSkullModelStateSkinLayer",
+    "MixinTitleScreen",
+    "MixinUnattendedCommand"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

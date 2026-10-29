@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "id": "neo",
+  "provides": [
+    "modmenu"
+  ],
+  "name": "NeoMods",
+  "description": "Project-NEXUS (Mod Menu / Spawner Info / EnchantToolTip integrated)",
+  "version": "$version",
+  "license": "ARR (NeoMods) / MIT (Mod Menu) / CC0-1.0 (Spawner Info, EnchantToolTip)",
+  "icon": "icon.png",
+  "authors": [
+    "argonaute_nemo",
+    "Prospector",
+    "haykam821",
+    "gniftygnome",
+    "TerraformersMC",
+    "PrincessMelody"
+  ],
+  "contributors": [
+    "shedaniel",
+    "Draylar",
+    "Mordna",
+    "Madis0",
+    "Yanis48",
+    "LemmaEOF",
+    "fewizz",
+    "XuyuEre",
+    "geniiii",
+    "thiagokenis",
+    "Juuxel",
+    "Chloe Dawn",
+    "modmuss50",
+    "Patbox",
+    "Lykrast",
+    "Pyrofab",
+    "UpcraftLP",
+    "swordglowsblue",
+    "hinataaki",
+    "LeonXu98",
+    "magneticflux",
+    "vanja-san",
+    "AlexIIL",
+    "masoncook16",
+    "el97",
+    "Hephaestus-Dev",
+    "zabi94",
+    "dexman545",
+    "dhouck",
+    "Hambaka",
+    "po-stulate",
+    "FlashyReese",
+    "egeesin",
+    "TheGlitch76",
+    "ludg1e",
+    "williambl",
+    "PepperCode1",
+    "ThatTrollzer",
+    "ToffeeMax",
+    "kalucky0",
+    "Maaster",
+    "MartrixX",
+    "NotSteven",
+    "Dolphin 2.1",
+    "ENDERZOMBI102",
+    "anatom3000",
+    "OroArmor",
+    "jackassmc",
+    "Vaerian",
+    "RDKRACZ",
+    "Hulenkius",
+    "XfedeX",
+    "spnda",
+    "Jab125",
+    "SolidBlock",
+    "Tkain",
+    "nfitzen",
+    "DenaryDev",
+    "legenden",
+    "NaiNonTH",
+    "MagnusHJensen",
+    "Benjamin-Norton",
+    "triphora",
+    "Pyrrha",
+    "sakura-ryoko",
+    "lowercasebtw",
+    "tnoctua",
+    "litetex",
+    "Starmoe(Celestia)",
+    "Coredex"
+  ],
+  "contact": {
+    "homepage": "https://discord.gg/nqx8esTwzS",
+    "sources": "https://discord.gg/nqx8esTwzS",
+    "issues": "https://discord.gg/nqx8esTwzS"
+  },
+  "environment": "*",
+  "entrypoints": {
+    "preLaunch": [
+      "neo.compat.FabricGate::preLaunch"
+    ],
+    "main": [
+      "neo.compat.FabricGate::main"
+    ],
+    "client": [
+      "neo.compat.FabricGate::client"
+    ],
+    "modmenu": [
+      "neo.menu.ModManagerCompat"
+    ]
+  },
+  "custom": {
+    "modmenu": {
+      "links": {
+        "modmenu.discord": "https://discord.gg/nqx8esTwzS"
+      }
+    }
+  }
+}
