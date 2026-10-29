@@ -1,7 +1,7 @@
 # エージェント向け 方針・規約 (Policy Rules)
 
 この文書は、このプロジェクト (Minecraft 26.3 向け Fabric Mod 「neo」/ NeoMod) を触る**エージェントが必ず守る規約**です。
-人間の開発者向けの説明は `README.md`、変更の経緯は `REFACTOR_NOTES.md`。ここは「やってよいこと・いけないこと」だけを書きます。
+人間の開発者向けの説明は `docs/development.md`、変更の経緯は `refactor_notes.md`。ここは「やってよいこと・いけないこと」だけを書きます。
 規約は **ID (P-xx)** で参照します。規約を変えるのは**ユーザーの指示があったときだけ**で、変えたら `tools/check_rules.py` も合わせて直します。
 
 **変更を終える前に必ず**: `python tools/check_rules.py` を実行し、違反 0 にする (機械で確認できる規約: P-04 / 11〜14 / 16 / 26 / 40 / 41 / 50 / 52 / 60 / 61。チェックリストは末尾)。
@@ -55,7 +55,7 @@
 ## 5. 機能の追加と設定
 
 - **P-40 機能のスイッチは Mod Menu の設定に集約**: 内蔵機能の ON/OFF は `ModManagerConfig` の `BooleanConfigOption` で持つ。設定画面は `ModManagerConfig` の項目を自動で並べるので、UI の追加コードは要らない。`option.modmenu.<key>` と `.true` / `.false` の翻訳を `en_us` / `ja_jp` に必ず足す。
-- **P-41 既定値** (この表の対象は「この Mod が内蔵する機能」。Mod Menu 本来の設定 — 並べ替え・バッジ・ファイル専用設定・タイトル画面の Mods ボタンの位置 (既定は「Realms を置換」。ユーザーが明示した) など — は対象外): 既定 **ON なのは 11 個だけ**: 進捗画面の拡大 (`large_advancements`)、クリックコマンドの確認省略 (`skip_command_confirmation`)、ズーム (`zoom`)、インベントリを開いても移動 (`inventory_move`。ユーザーが「既定 ON」と明示した)、進捗画面とインベントリの直接切り替え (`screen_switch`。ユーザーが修正を求めた)、3D スキンレイヤー (`skin_layers`。ユーザーが「規定は ON」と明示した)、ワールドマップ (`world_map`) と、その目印の自動表示 (`map_auto_markers`。構造物と旗を 1 つに統合。ユーザーが「自動で出す」と明示し、統合を指示した)、F5 自由視点 (`free_look`。ユーザーが「規定 ON」と明示した)、サウンドブラウザ (`sound_browser`。ユーザーが「既定 ON」を選んだ)、AFK シネマティック (`afk_cinematic`。ユーザーが「既定で放置 ON」と明示した。放置時間は後に 30 秒へ変更)。**それ以外はすべて既定 OFF** (ツールチップ・スポナー情報など)。新しい機能の既定は、**ユーザーが明示しない限り OFF**。既定を変えるときは、この表・`README.md`・`tools/check_rules.py` を揃えて直す。
+- **P-41 既定値** (この表の対象は「この Mod が内蔵する機能」。Mod Menu 本来の設定 — 並べ替え・バッジ・ファイル専用設定・タイトル画面の Mods ボタンの位置 (既定は「Realms を置換」。ユーザーが明示した) など — は対象外): 既定 **ON なのは 11 個だけ**: 進捗画面の拡大 (`large_advancements`)、クリックコマンドの確認省略 (`skip_command_confirmation`)、ズーム (`zoom`)、インベントリを開いても移動 (`inventory_move`。ユーザーが「既定 ON」と明示した)、進捗画面とインベントリの直接切り替え (`screen_switch`。ユーザーが修正を求めた)、3D スキンレイヤー (`skin_layers`。ユーザーが「規定は ON」と明示した)、ワールドマップ (`world_map`) と、その目印の自動表示 (`map_auto_markers`。構造物と旗を 1 つに統合。ユーザーが「自動で出す」と明示し、統合を指示した)、F5 自由視点 (`free_look`。ユーザーが「規定 ON」と明示した)、サウンドブラウザ (`sound_browser`。ユーザーが「既定 ON」を選んだ)、AFK シネマティック (`afk_cinematic`。ユーザーが「既定で放置 ON」と明示した。放置時間は後に 30 秒へ変更)。**それ以外はすべて既定 OFF** (ツールチップ・スポナー情報など)。新しい機能の既定は、**ユーザーが明示しない限り OFF**。既定を変えるときは、この表・`docs/development.md`・`tools/check_rules.py` を揃えて直す。
 - **P-42 OFF は負荷にしない**: OFF のとき、毎フレーム・毎 tick・サーバー側の処理は**入口で打ち切る** (設定を 1 回引いて即 return)。OFF の間に割り当て・走査・保存・送信をしない。ON/OFF を切り替えたときに溜めた状態は捨てる。専用サーバーなど設定が届かない場所は、負荷の残りを文書に書く。
 - **P-43 キーバインドは最小限**: 設定で切り替えられるものはキーにしない。キーを持つのは**即時の操作で、設定では代替できないもの**だけ (現状: ワールドマップ = M、スポナーの「最寄りのみ表示」、NeoMods の設定画面を開く = @ キー)。カテゴリは `NeoKeyMappings.MAIN`。新しいキーを足す前にユーザーに確認する。
 - **P-44 参考にする他の Mod**: ユーザーが渡した jar は**動作の参考**にする。**コードを取り込まない** (独自実装)。ライセンス (WI Zoom は GPL-3.0-or-later など) を確認して README / 注記に書く。
@@ -81,8 +81,8 @@
 - **P-71 検証**: 手元に JDK 25 を入れ、**実際の API に対して自分のコードを完全にコンパイルする**。classpath は Minecraft 26.3 の jar + Gson / Guava / slf4j / commons-lang3 / fastutil / ASM / log4j-api (Ubuntu の apt で入る) に加え、**Mixin・MixinExtras・Fabric Loader・Mojang の DFU・Brigadier は GitHub からソースを `git clone --depth 1` して `-sourcepath` に渡す** (jar は maven が使えないため)。**「cannot find symbol」を「ライブラリが無いから」と除外してはいけない** (これで `ChunkPos.asLong` が 26.3 に無いという本物のエラーを見逃した)。許容するのは、そのコードが依存する**環境に実在するがここに無いライブラリ** (LWJGL の SDL など、`ParentEntry` の 2 件) だけで、除外した件数と中身を報告に書く。`javac -proc:none` は Mixin の対象 (メソッド名・記述子・ordinal) を検証しないので、それはバイトコードで確認する (P-62)。`tools/check_rules.py` も通す。**コンパイル・実機で確認していないことは、確認したことと分けて必ず書く**。
 - **P-72 設計の選択はユーザーに聞く**: 設計方針・既定値・範囲・見た目などの**判断が分かれる点は、選択肢を挙げて質問**する。ユーザーの指示が具体的なときは、聞き返さず実装する。曖昧なまま走らない。
 - **P-73 言われたことだけを実装**: 求められていない機能・キー・設定・ライブラリを足さない。足したくなったら提案にとどめる。
-- **P-74 ドキュメントを揃える**: 機能・設定・規約を変えたら `README.md` (設定表・機能の節)、`REFACTOR_NOTES.md` (実施内容・確認できたこと・**未確認**・判断)、翻訳、この文書を**同時に**更新する。
-- **P-75 報告**: 完了報告は日本語で、(1) 何をしたか (2) 確認できたこと (3) **未確認のこと** (4) ユーザーの判断が要る点、の順に短く書く。成果物は `/mnt/user-data/outputs` の zip (`*.class`・ビルド出力 (`bin/` とルートの `NeoMods.jar`) を含めない)。ただし `libs/` の jar (特に `libs/minecraft/minecraft-26.3.jar`) は**実体で入れる** (シンボリックリンクにしない。入っていないとユーザーの `build.bat` が全部失敗する)。
+- **P-74 ドキュメントを揃える**: 機能・設定・規約を変えたら `docs/development.md` (設定表・機能の節)、`refactor_notes.md` (実施内容・確認できたこと・**未確認**・判断)、翻訳、この文書を**同時に**更新する。
+- **P-75 報告**: 完了報告は日本語で、(1) 何をしたか (2) 確認できたこと (3) **未確認のこと** (4) ユーザーの判断が要る点、の順に短く書く。成果物は `/mnt/user-data/outputs` の zip (`*.class`・ビルド出力 (`bin/` とルートの `NeoMod.jar`) を含めない)。ただし `libs/` の jar (特に `libs/minecraft/minecraft-26.3.jar`) は**実体で入れる** (シンボリックリンクにしない。入っていないとユーザーの `build.bat` が全部失敗する)。
 
 ## 9. 安全
 
@@ -108,5 +108,5 @@
 6. [ ] 新しいサードパーティ・Fabric API・UI ツールキットを足していない (P-50〜52)
 7. [ ] Mixin は薄く、`require` を明示し、注入先をバイトコードで確認した (P-60〜63)
 8. [ ] 実際の API (Minecraft jar + Mixin / MixinExtras / Fabric Loader / DFU / Brigadier のソース) に対して JDK 25 で完全にコンパイルし、エラー 0 (LWJGL SDL の 2 件を除く)。`python tools/check_rules.py` が違反 0
-9. [ ] `README.md` / `REFACTOR_NOTES.md` / 翻訳 / この文書を更新した (P-74)
+9. [ ] `docs/development.md` / `refactor_notes.md` / 翻訳 / この文書を更新した (P-74)
 10. [ ] 報告に「確認したこと」と「未確認のこと」を分けて書いた (P-71, P-75)

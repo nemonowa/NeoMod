@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AGENTS.md の規約のうち、機械で確認できるものを検査する (標準ライブラリだけ。Python 3.8 以上)。
+"""agents.md の規約のうち、機械で確認できるものを検査する (標準ライブラリだけ。Python 3.8 以上)。
 
 使い方: プロジェクトのルートで  python tools/check_rules.py
 違反があれば一覧を表示して終了コード 1。規約を変えたときは、この中の表 (EXPECTED_DEFAULTS など) も合わせて直す。
@@ -201,7 +201,7 @@ else:
     section = config_text[marker:end if end > 0 else len(config_text)]
     for _, key, default in re.findall(r'BooleanConfigOption\s+(\w+)\s*=\s*new BooleanConfigOption\("(\w+)",\s*(true|false)\)', section):
         if key not in EXPECTED_DEFAULTS:
-            fail("P-41", "ModManagerConfig", "新しい機能スイッチ " + key + " が tools/check_rules.py と AGENTS.md の表に無い (既定は OFF が原則)")
+            fail("P-41", "ModManagerConfig", "新しい機能スイッチ " + key + " が tools/check_rules.py と agents.md の表に無い (既定は OFF が原則)")
 
 for lang in ("en_us", "ja_jp"):
     lang_path = os.path.join(RES, "assets", "neo", "lang", lang + ".json")

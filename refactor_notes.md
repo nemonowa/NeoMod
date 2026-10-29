@@ -1,12 +1,12 @@
 # リファクタリング記録 / 要判断リスト
 
 ## このファイルの読み方
-- **「縮退起動を新しい版へ移植」より前の古い節は、下の「経緯の要約」にまとめた**。当時の原文 (確認の細部・当時の判断・当時の名前) は `REFACTOR_NOTES_archive.md` にそのまま残してある (更新しない)。それ以降の節は原文のまま、この下に続く。
+- **「縮退起動を新しい版へ移植」より前の古い節は、下の「経緯の要約」にまとめた**。当時の原文 (確認の細部・当時の判断・当時の名前) は `refactor_notes_archive.md` にそのまま残してある (更新しない)。それ以降の節は原文のまま、この下に続く。
 - **名前の移り変わり** (古い記録は当時の名前で書かれている): Mod の ID `neomod` → `neo` / パッケージ `com.neo.*` → `neo.*` / `ModMenu*` → `ModManager*` (ただし外部互換の `com.terraformersmc.modmenu.api`・`modmenu` エントリポイント・`provides: modmenu`・翻訳キー `modmenu.*`・`option.modmenu.*` は据え置き / P-05) / 表示名は「NeoMods」/ 起動ログ `mods/NeoModLog.txt` → `mods/NeoMods.log` / ビルドの出力先 `build/` → `bin/` (jar は `build.bat` と同じ階層の `NeoMods.jar`) / `CheatGate` → `PermissionGate`。
 - 「未確認」は、**書いた当時の記録**。その後に実機で確認した結果は、このファイルには無い (ユーザーの `build.bat` と実機の結果を、改めて記録に反映する必要がある)。
 - この環境の限界 (P-71): 手元は JDK 21 の実行環境だけで、`javac` も依存 jar も無い時期がある。コンパイル・実機は、ユーザーの `build.bat` が正。
 
-## 経緯の要約 (古い節。原文は `REFACTOR_NOTES_archive.md`)
+## 経緯の要約 (古い節。原文は `refactor_notes_archive.md`)
 
 ### 1. 構成の整理 (挙動は変えていない)
 - **Mod Menu 部分の循環依存の解消**: 24 クラスの循環を、一方向の層 `util ← mod ← config ← service ← gui ← menu / mixin / api ← fabric` に再編 (P-14)。神クラスだった `ModMenu` を、定数・登録簿・列挙・設定画面登録・Mod 数・ボタン文言に分解。`Mod` モデルから設定依存を除去。`ModsScreen` ⇄ 一覧の相互参照は `ModsScreenHost` で解消。設定保存 → キャッシュ破棄は `addSaveListener` の逆向き通知。残る循環は `gui` 内の 6 クラスだけ (意図的)。
@@ -14,7 +14,7 @@
 - **Forge 版** (`src/forge`、Mod Menu 本体のみ、P-17): 入口・プラットフォーム・アイコン元の 5 クラスと `mods.toml`。当時から Forge のコンパイルは未検査 (Forge の jar が無い)。未確認だったもの: EventBus の `addListener` のオーバーロード、`RegisterKeyMappingsEvent` の発火時期、他 Mod の設定画面の登録時期。
 - **アセットの名前空間を `neo` に統合** (P-05): `modmenu` / `spawnerinfo` / `neomod` のアセットと lang を `assets/neo/` へ。参照は `NeoAssets` (`NAMESPACE` / `path`) 経由。変えなかったもの: 翻訳キーの接頭辞、設定の保存先 (`options.txt` の `neo_` 行)、ネットワークのチャンネル ID、データの保存先、Mod ID。`check_rules.py` に P-05 の検査を追加 (陰性対照 7 件で検出を確認)。
 - **整理**: Swing ポップアップの削除 (ログは最新の起動のみ上書き)、デッドコード・未使用 import・コメントアウトされた旧コードの削除、重複の除去 (`CameraTypeSwitch#set`、`HeldMapView` の升目の範囲 `CellRange`)、命名 (`drawContext` → `graphics`)、`EnchantToolTipClient` のルール表化、`SpawnerInfoClient` の分割。**見送り** (挙動が変わりうる / 大きい): `SoundBrowserScreen#clip` と `WorldMapScreen#clip` の統合 (実装が違い、書式コードで結果が変わりうる)、`FabricMod#getContainer` (外部向けアクセサ)、700 行級のクラス (`WorldMapScreen` / `ModsScreen` / `SoundBrowserScreen`) の分割。
-- **規約 (`AGENTS.md` + `CLAUDE.md` + `tools/check_rules.py`)**: これまでの指示・判断を ID 付き (P-xx) の規約にまとめた。機械で検査できるもの: neo→main の参照・ローダー型の import (P-11)、分割パッケージ (P-12)、階層 (P-13)、循環 (P-14)、Mixin の配置と一覧 (P-16)、書き込み (P-26)、既定値と翻訳 (P-40 / P-41 / P-04)、サードパーティ・UI ツールキット (P-50 / P-52)、`require` と `@Overwrite` / `@Redirect` (P-60 / P-61)、縮退起動 (P-92)。
+- **規約 (`agents.md` + `claude.md` + `tools/check_rules.py`)**: これまでの指示・判断を ID 付き (P-xx) の規約にまとめた。機械で検査できるもの: neo→main の参照・ローダー型の import (P-11)、分割パッケージ (P-12)、階層 (P-13)、循環 (P-14)、Mixin の配置と一覧 (P-16)、書き込み (P-26)、既定値と翻訳 (P-40 / P-41 / P-04)、サードパーティ・UI ツールキット (P-50 / P-52)、`require` と `@Overwrite` / `@Redirect` (P-60 / P-61)、縮退起動 (P-92)。
 - **検証方法の見直し (P-71)**: `ChunkPos.asLong` が 26.3 に無いというビルドエラーを、手元のコンパイル確認で「ライブラリが無いため」と除外して見逃した。以降は、Mixin・MixinExtras・Fabric Loader・DFU・Brigadier・JOML のソースを GitHub から取得し、**実際の API に対して全体を完全にコンパイル**する。「cannot find symbol」を除外しない。許容は LWJGL SDL の 2 件 (`ParentEntry`) だけ。`javac -proc:none` は Mixin の注入先を検証しないので、バイトコードで確認する (P-62)。
 
 ### 2. 設定まわり
@@ -29,7 +29,7 @@
 - 「Mod Menu」→「Mod Manager」に改名 (表示名・クラス名)。「開く」キーは NeoMod カテゴリ・既定は JIS の @ キー (`KEY_LBRACKET`)。**Mods アイコンと @ キーの行き先は NeoMods の設定画面** (Mod 一覧に入る口はタイトル画面の「Mods」ボタンだけ。形式が「アイコン」だと一覧を開けない)。
 - Mod 一覧: 並びは固定 (Java → Minecraft → NeoMods → 表示名の昇順)。Java は前提 Mod ではなく Mod として数える・説明は「Java実行環境 …」・アイコンは自作。Minecraft のアイコンは**バニラの標準リソースパックの `pack.png`** を参照 (`IconHandler#createVanillaPackIcon`。読めなければ「不明」のアイコン)。説明枠に NeoMods の機能一覧 (`modmenu.descriptionTranslation.neo`)。画面タイトルは「Mod Manager」(ホバーで説明)。Mods ボタンの Mod 数は一覧の「N個のModを表示中」と同じ数え方に統一、表記は「7 Mods Loaded!!」。
 - タイトル画面に **Discord アイコン** (リンク https://discord.gg/nqx8esTwzS)。**アイコン画像はすべて 16x16 に統一** (Minecraft だけ 128px を縮小表示)。設定ボタンは歯車。Discord のロゴの利用条件は Discord 側のもの。公式ロゴではなく手描きのドット。
-- **ビルド**: jar は `build.bat` と同じ階層の `NeoMods.jar`、途中の生成物は `bin/`。基準は JDK 25、`src/compat` だけ `--release 8` (P-92 縮退起動)。
+- **ビルド**: jar は `build.bat` と同じ階層の `NeoMod.jar`、途中の生成物は `bin/`。基準は JDK 25、`src/compat` だけ `--release 8` (P-92 縮退起動)。
 
 ### 4. 機能ごとの経緯
 - **進捗画面**: 窓の拡大 (最初は画面の 85% → 見出し「進捗」と「完了」ボタンを消して `画面 − 2×30` に。ボタンが無いので Esc かキーで閉じる)。右下に「閉じる」タブ (エンチャント付きバリアブロック)。`@ModifyConstant` の個数は `require` で固定。**直接切り替え** (`ScreenSwitch#toAdvancements`): 全コンテナ画面・本 (教卓を含む)・ワールドマップが対象。文字入力画面・ポーズ画面は対象外。メニューを持つ画面からは `closeContainer()` を呼んでから進捗画面を開く (バニラの E と同じ。切り替えの瞬間にカーソルが中央に戻る可能性がある点が当時の「要確認」)。
@@ -74,7 +74,7 @@
 - 依頼: 古い `NeoMod.jar` は古い Forge / Fabric / Java でも最低限起動した。新しいほうもそうしたい。回答: **Fabric と Forge の両方**、古い環境では**ログだけ書いて機能は無効 (ゲームは止めない)**、Java の下限は **8 以上**。
 - 以前の状態 (比較して分かったこと): 新しいほうは `depends` (fabricloader≥0.19.2 / minecraft≥26.3- / java≥25)・`--release 25`・Forge の `minecraft [26.3,26.4)` 必須で、古い環境では**読み込みを拒否**していた (起動できない)。
 - 実装 (新規 `src/compat` = パッケージ `neo.compat`、**`--release 8`**): `CompatCheck` (環境の判定とログ。Java のメジャー・Minecraft のバージョンの解析・`mods/NeoMods.log` への書き込み・本体へのリフレクション呼び出し)、`FabricGate` (`preLaunch` / `main` / `client`)、`ForgeGate` (`@Mod("neo")`、引数なしのコンストラクター)。**環境が合う (Java 25 以上 かつ Minecraft 26.3 以上) ときだけ本体を呼ぶ**。Minecraft の版が分からないときは Java だけで判断する (25 以上なら動かす = これまでと同じ)。合わないときは、ログ 1 つ (ローダーの版・Minecraft・Java・必要な環境) を書いて何もしない。ログが書けなくても標準エラーに出すだけで続行する。
-- 変更点: `fabric.mod.json` — `entrypoints` の `preLaunch` / `main` / `client` を `neo.compat.FabricGate::…` (メソッド参照。ローダーの型を import しなくてよい) に、**`mixins` と `depends` (minecraft / java / fabricloader) を削除** (古い環境で Java 25 の Mixin クラスを ASM が読んで止まるのを避けるため、Mixin の設定は `FabricGate#preLaunch` が `Mixins.addConfiguration("mixins.neo.json")` で、環境が合うときだけ登録する)。`modmenu` の入口は据え置き (読むのは Mod Menu 本体 = 合うときの自分自身だけ)。本体: `NeoMain#start()` / `NeoClient#start()` を追加 (既存の `onInitialize` / `onInitializeClient` はそのまま)。Forge: `NeoForgeMod` から `@Mod` と `FMLJavaModLoadingContext` の引数を外し、`start()` (static) に (処理は同じ)、`mods.toml` から Minecraft の版の依存を削除。ビルド: `build.ps1` / `build.sh` に `src/compat` を `--release 8` でコンパイルする手順を追加。Forge の `@Mod` はコンパイル専用の代用品 `src/compat/stubs` を使い、**jar には入れない** (本物の Forge の jar は新しい Java 用で、Java 8 のコンパイラが読めないため)。`check_rules.py` に **P-92** を追加 (入口の指す先、`mixins` / `depends` が無いこと、`src/compat` が Java 標準以外を import しないこと、`@Mod` が `ForgeGate` だけ、`--release 8`)。AGENTS.md に P-92、README に「古い環境での動作」。
+- 変更点: `fabric.mod.json` — `entrypoints` の `preLaunch` / `main` / `client` を `neo.compat.FabricGate::…` (メソッド参照。ローダーの型を import しなくてよい) に、**`mixins` と `depends` (minecraft / java / fabricloader) を削除** (古い環境で Java 25 の Mixin クラスを ASM が読んで止まるのを避けるため、Mixin の設定は `FabricGate#preLaunch` が `Mixins.addConfiguration("mixins.neo.json")` で、環境が合うときだけ登録する)。`modmenu` の入口は据え置き (読むのは Mod Menu 本体 = 合うときの自分自身だけ)。本体: `NeoMain#start()` / `NeoClient#start()` を追加 (既存の `onInitialize` / `onInitializeClient` はそのまま)。Forge: `NeoForgeMod` から `@Mod` と `FMLJavaModLoadingContext` の引数を外し、`start()` (static) に (処理は同じ)、`mods.toml` から Minecraft の版の依存を削除。ビルド: `build.ps1` / `build.sh` に `src/compat` を `--release 8` でコンパイルする手順を追加。Forge の `@Mod` はコンパイル専用の代用品 `src/compat/stubs` を使い、**jar には入れない** (本物の Forge の jar は新しい Java 用で、Java 8 のコンパイラが読めないため)。`check_rules.py` に **P-92** を追加 (入口の指す先、`mixins` / `depends` が無いこと、`src/compat` が Java 標準以外を import しないこと、`@Mod` が `ForgeGate` だけ、`--release 8`)。agents.md に P-92、README に「古い環境での動作」。
 - 確認できたこと: JDK 25 で `--release 8` のコンパイルが通り、出力のクラス形式が **52 (Java 8)**、Forge の代用品が出力に**入っていない**。単体のチェック 36 件 (版の解析 `26.3` `26.3.1` `26.3-rc1` `26.3-snapshot-2` `1.20.4` `abc` `null` など、Java の版 `1.8` `17` `25` など、判定の組み合わせ) が**すべて合格**。偽のローダー (FabricLoader / Mixins / 本体クラスの代用品) を使った入口の動作確認: Java 25 + MC 26.3 / 26.3-rc1 → Mixin 設定の登録・本体の `start()` 呼び出し・ログなし。Java 25 + MC 1.20.4 / 26.2.1、Java 21 + MC 26.3 / 1.20.4 → ログのみ・例外なし。ローダーが無い (版が不明) → Java 25 は動かす、Java 21 は無効。`mods` を作れない場合 → 標準エラーに出して続行。Forge 側 (偽の `MCPVersion` / `FMLLoader#versionInfo`) も同様の結果。`ForgeGate` のクラスに `Lnet/minecraftforge/fml/common/Mod;` の注釈 (値 `neo`) が入っている。型検査エラー 0 (依存ソース側 155 件は変わらず)、`check_rules.py` 違反 0、P-92 の陰性対照 4 件 (`mixins` を書く / `depends` に minecraft / `main` が本体を指す / compat がローダーの型を import) がすべて検出された。
 - **未確認 (要・実機)**: ① **本物の古い Fabric / Forge / Java 8 での動作** (この環境には Java 8 と古いローダーが無い。Java 8 は `--release 8` と、Java 21 での実行で代用)。② **Fabric の「メソッド参照」の入口 (`Class::method`)** が、古いローダーで使えるか (使えない版では、ローダー側の読み込みエラーになる)。③ **26.3 でのMixin 設定の動的登録** (`Mixins.addConfiguration` を `preLaunch` で呼ぶ方式に変えた = **合う環境でも実機で初めて確認できる変更**。`fabric.mod.json` に書く従来の方式と、Fabric が付ける設定の付随情報 (どの Mod の設定か) が違う可能性)。④ **Forge**: 引数なしの `@Mod` クラスのコンストラクターが 26.x の Forge で受け付けられるか、Forge 側は Forge の jar が無く、コンパイルも未検査。⑤ 実際の `FabricLoader` / `MCPVersion` のリフレクション (偽物でしか試していない)。
 - **ユーザーの判断が要る点 / 注意**: (1) **合う環境 (26.3) の起動方法が変わった** (Mixin の登録がデータ → コード、入口が本体 → ゲート)。動作は同じはずだが、実機で必ず確認してほしい。問題があれば、Mixin の登録を元の方式に戻す代わりに古い環境のためのゲートを外す、などの案がある。(2) **本物の Mod Menu とは併用できない** (`provides: modmenu`)。古い環境でも同じ。(3) 古い環境では、本体の機能は何も動かない (できるのは「ゲームを止めない」「ログに理由を書く」まで)。(4) Java 8 を下限にしたが、Fabric / Forge のローダー自体の最低要件はローダー側の仕様 (古すぎるローダーは対象外)。(5) `modmenu` の入口 (`neo.menu.ModManagerCompat`) は据え置いたので、古い環境に**本物の Mod Menu** があると、これを読もうとして失敗しうる (併用不可の (2) と同じ状況)。
@@ -147,8 +147,8 @@
 - 確認できたこと: `sh -n build.sh` (構文)、疑似の `libraries/` (`gson 2.8.9` と `2.11.0`、`META-INF` 内の jar) に対して、最新の版だけが選ばれて `META-INF` が除かれること、`$version` / `${version}` の置換、`check_rules.py` 違反 0。
 - **未確認 (要・実機)**: この環境には `javac` / `jar` が無く、`build.sh` は**ビルドとして一度も実行していない**。① 入れ子の jar の取り出し (`jar --extract`。パスに空白がある macOS の `Application Support` を想定した書き方にしてあるが未実行) ② Forge あり/なしの両方のビルド ③ `sort -V` が無い環境 (古い macOS) では最新の版の選択が動かない可能性 ④ `NeoMods.jar` が `build.ps1` の出力と同じ中身になること。
 
-## `REFACTOR_NOTES.md` の整理 (ユーザー指示)
-- 古い節 (「縮退起動を新しい版へ移植」より前の 572 行) を、冒頭の「経緯の要約」に置き換えた。原文は `REFACTOR_NOTES_archive.md` に**そのまま**移した (更新しない)。それ以降の節は原文のまま。
+## `refactor_notes.md` の整理 (ユーザー指示)
+- 古い節 (「縮退起動を新しい版へ移植」より前の 572 行) を、冒頭の「経緯の要約」に置き換えた。原文は `refactor_notes_archive.md` に**そのまま**移した (更新しない)。それ以降の節は原文のまま。
 - 要約で意識したこと: ①「判断」「訂正」「要判断 (未対応)」「当時の未確認」は残す ② 確認の細部 (バイトコードの署名・検証の数値) と当時の名前は archive にだけ残す ③ 名前の移り変わりを冒頭に表で ④ 初期の「要判断」リストの現状を 1 節にまとめた。
 - **注意**: 要約は私が書き直したもの。原文と食い違っていないかは、必要なら archive と見比べてほしい。「未確認」は当時の記録で、その後の実機確認の結果は反映されていない。
-- 規約 (`AGENTS.md`) の「`REFACTOR_NOTES.md` に書く」(P-74) はそのまま。archive は読むだけで、書かない。
+- 規約 (`agents.md`) の「`refactor_notes.md` に書く」(P-74) はそのまま。archive は読むだけで、書かない。

@@ -2,7 +2,7 @@
 # NeoMod ビルドスクリプト (JDK のみ使用: javac + jar)。build.ps1 と同じ手順・同じ出力。
 # Gradle / Loom / gradlew は不要です。
 #
-#   ./build.sh                    -> NeoMods.jar (build.sh と同じ階層。途中の生成物は bin/ に出る)
+#   ./build.sh                    -> NeoMod.jar (build.sh と同じ階層。途中の生成物は bin/ に出る)
 #   JAVA_RELEASE=25 ./build.sh    (既定は 25)
 #   MC_DIR=/path/to/.minecraft ./build.sh   (.minecraft の場所が違うとき)
 #   BUILD_FORGE=1 ./build.sh      (libs/forge/ に Forge の jar があるとき、または .minecraft の libraries に Forge があるとき、Forge の入口も一緒にビルドする)
@@ -11,7 +11,7 @@
 set -eu
 cd "$(dirname "$0")"
 
-NAME=NeoMods
+NAME=NeoMod
 VERSION=26.3
 RELEASE="${JAVA_RELEASE:-25}"
 OUT=bin
