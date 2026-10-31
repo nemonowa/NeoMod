@@ -57,18 +57,17 @@ function Newest-Jars($root) {
         }
 }
 $jars = @()
+$LibForgeJars = @()
 $jars += Get-ChildItem -LiteralPath 'libs' -Recurse -Filter '*.jar' -File
 if ($mc -and (Test-Path "$mc\libraries")) {
     Write-Host "using libraries: $mc\libraries"
     # Forge / NeoForge installs put their own copies of Minecraft (net\minecraft\...) and Forge-only jars in
-    # libraries. They shadow libs\minecraft and break the Fabric build, so they are left out unless BUILD_FORGE=1.
+    # libraries. They would break the Fabric build, so they are kept apart and used only for the Forge entry point.
     $forgeLib = '[\\/](net[\\/]minecraftforge|net[\\/]neoforged|net[\\/]minecraft|cpw[\\/]mods)[\\/]|mixinextras-forge'
     $libJars = @(Newest-Jars "$mc\libraries")
-    if ($env:BUILD_FORGE -ne '1') {
-        $skipped = @($libJars | Where-Object { $_.FullName -match $forgeLib })
-        if ($skipped.Count -gt 0) { Write-Host "skipped $($skipped.Count) Forge / Minecraft jars in libraries (set BUILD_FORGE=1 to use them)" }
-        $libJars = @($libJars | Where-Object { $_.FullName -notmatch $forgeLib })
-    }
+    $LibForgeJars = @($libJars | Where-Object { $_.FullName -match $forgeLib })
+    if ($LibForgeJars.Count -gt 0) { Write-Host "kept $($LibForgeJars.Count) Forge / Minecraft jars in libraries apart (used only for the Forge entry point)" }
+    $libJars = @($libJars | Where-Object { $_.FullName -notmatch $forgeLib })
     # The vanilla client jar (versions\<version>\<version>.jar) goes first, so no other copy of Minecraft can shadow it.
     $vanilla = "$mc\versions\$Version\$Version.jar"
     if (Test-Path $vanilla) { $jars = @(Get-Item $vanilla) + $jars }
@@ -114,7 +113,7 @@ function Remove-EmptyDirs($root) {
         ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force }
 }
 
-function Compile($label, $srcRoots, $dest, $classpath, $rel = $Release) {
+function Compile($label, $srcRoots, $dest, $classpath, $rel = $Release, $optional = $false) {
     $lines = @('-encoding UTF-8', "--release $rel", '-proc:none', '-Xlint:-options')
     if ($classpath) { $lines += ('-cp ' + (Q $classpath)) }
     $lines += ('-d ' + (Q $dest))
@@ -123,6 +122,7 @@ function Compile($label, $srcRoots, $dest, $classpath, $rel = $Release) {
     }
     $argfile = "$Out/$label.args"
     [IO.File]::WriteAllLines($argfile, [string[]]($lines + $files), $Utf8)
+    if ($optional) { & javac "@$argfile" | Out-Host; return ($LASTEXITCODE -eq 0) }
     Run 'javac' @("@$argfile")
 }
 
@@ -142,17 +142,21 @@ Compile 'compat-stub' @('src/compat/stubs') "$Out/compat-stub" '' 8
 Compile 'compat' @('src/compat/java') "$Out/classes" "$Out/compat-stub" 8
 
 # --- Forge (optional): src/forge is compiled only when Forge jars are available ---
-# Put Forge's jars in libs/forge/ (see libs/README.txt), or set BUILD_FORGE=1 when a Forge install's
-# libraries are already picked up from .minecraft/libraries. Without Forge jars the result is Fabric-only.
+# Forge's jars come from libs/forge/ (see libs/README.txt) or from a Forge install in .minecraft/libraries.
+# If the Forge entry point does not compile, the result is still a working Fabric-only jar.
 $ForgeJars = @()
 if (Test-Path 'libs/forge') { $ForgeJars = @(Get-ChildItem -LiteralPath 'libs/forge' -Recurse -Filter '*.jar' -File) }
-$BuildForge = ($ForgeJars.Count -gt 0) -or ($env:BUILD_FORGE -eq '1')
+$ForgeJars += $LibForgeJars
+$BuildForge = (@($ForgeJars | Where-Object { $_.FullName -match '[\\/]libs[\\/]forge[\\/]|[\\/]net[\\/](minecraftforge|neoforged)[\\/]' }).Count -gt 0) -or ($env:BUILD_FORGE -eq '1')
 if ($BuildForge) {
     Write-Host '      + Forge entry point (src/forge) is compiled too'
     $forgeCp = (@("$Out/classes") + $cpList + @($ForgeJars | ForEach-Object { $_.FullName -replace '\\', '/' })) -join ';'
-    Compile 'forge' @('src/forge/java') "$Out/classes" $forgeCp
+    if (-not (Compile 'forge' @('src/forge/java') "$Out/classes" $forgeCp $Release $true)) {
+        $BuildForge = $false
+        Write-Host 'WARNING: the Forge entry point did not compile (see the errors above) -> Fabric-only jar.' -ForegroundColor Yellow
+    }
 } else {
-    Write-Host 'NOTE: no Forge jars (libs/forge is empty) -> Fabric-only jar. No mods.toml / Forge classes are included.' -ForegroundColor Yellow
+    Write-Host 'NOTE: no Forge jars (libs/forge is empty, no Forge in .minecraft/libraries) -> Fabric-only jar. No mods.toml / Forge classes are included.' -ForegroundColor Yellow
 }
 foreach ($d in $StubDirs) { Remove-Item -Recurse -Force "$Out/classes/$d" -ErrorAction SilentlyContinue }
 Remove-EmptyDirs "$Out/classes"
