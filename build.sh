@@ -51,8 +51,10 @@ for j in $(find libs -name '*.jar' | sort); do CP="${CP:+$CP:}$j"; done
 if [ -n "${MC_DIR:-}" ] && [ -d "$MC_DIR/libraries" ]; then
   echo "libraries を使用: $MC_DIR/libraries"
   while IFS= read -r j; do CP="${CP:+$CP:}$j"; done <<EOL
-$(newest_jars "$MC_DIR/libraries")
+$(newest_jars "$MC_DIR/libraries" | if [ "${BUILD_FORGE:-}" = "1" ]; then cat; else grep -Ev '/(net/minecraftforge|net/neoforged|net/minecraft|cpw/mods)/|mixinextras-forge'; fi)
 EOL
+  # Forge / NeoForge を入れると、libraries に Forge 用の Minecraft (net/minecraft/...) や Forge 専用の jar が入る。
+  # これらは libs/minecraft より先に見つかって Fabric 版のビルドを壊すので、BUILD_FORGE=1 のとき以外は使わない。
 else
   echo "WARNING: .minecraft/libraries が見つかりません。Fabric Loader / Mixin / MixinExtras / Gson / Guava の jar が必要です。" >&2
   echo "         Fabric Loader 0.19.5 のプロファイルで Minecraft 26.3 を一度起動するか、MC_DIR=/path/to/.minecraft を指定してください。" >&2

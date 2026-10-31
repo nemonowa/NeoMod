@@ -60,7 +60,16 @@ $jars = @()
 $jars += Get-ChildItem -LiteralPath 'libs' -Recurse -Filter '*.jar' -File
 if ($mc -and (Test-Path "$mc\libraries")) {
     Write-Host "using libraries: $mc\libraries"
-    $jars += Newest-Jars "$mc\libraries"
+    # Forge / NeoForge installs put their own copies of Minecraft (net\minecraft\...) and Forge-only jars in
+    # libraries. They shadow libs\minecraft and break the Fabric build, so they are left out unless BUILD_FORGE=1.
+    $forgeLib = '[\\/](net[\\/]minecraftforge|net[\\/]neoforged|net[\\/]minecraft|cpw[\\/]mods)[\\/]|mixinextras-forge'
+    $libJars = @(Newest-Jars "$mc\libraries")
+    if ($env:BUILD_FORGE -ne '1') {
+        $skipped = @($libJars | Where-Object { $_.FullName -match $forgeLib })
+        if ($skipped.Count -gt 0) { Write-Host "skipped $($skipped.Count) Forge / Minecraft jars in libraries (set BUILD_FORGE=1 to use them)" }
+        $libJars = @($libJars | Where-Object { $_.FullName -notmatch $forgeLib })
+    }
+    $jars += $libJars
 } else {
     Write-Host "WARNING: .minecraft\libraries not found. Fabric Loader / Mixin / MixinExtras / Gson / Guava jars are needed." -ForegroundColor Yellow
     Write-Host "         Run Minecraft 26.3 once with a Fabric Loader 0.19.5 profile, or set MC_DIR=C:\path\to\.minecraft" -ForegroundColor Yellow
