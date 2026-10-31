@@ -50,6 +50,11 @@ CP=""
 for j in $(find libs -name '*.jar' | sort); do CP="${CP:+$CP:}$j"; done
 if [ -n "${MC_DIR:-}" ] && [ -d "$MC_DIR/libraries" ]; then
   echo "libraries を使用: $MC_DIR/libraries"
+  # バニラのクライアントの jar (versions/<版>/<版>.jar) を先頭に置き、ほかの Minecraft の写しに隠されないようにする
+  if [ -f "$MC_DIR/versions/$VERSION/$VERSION.jar" ]; then
+    CP="$MC_DIR/versions/$VERSION/$VERSION.jar${CP:+:$CP}"
+    echo "Minecraft: $MC_DIR/versions/$VERSION/$VERSION.jar"
+  fi
   while IFS= read -r j; do CP="${CP:+$CP:}$j"; done <<EOL
 $(newest_jars "$MC_DIR/libraries" | if [ "${BUILD_FORGE:-}" = "1" ]; then cat; else grep -Ev '/(net/minecraftforge|net/neoforged|net/minecraft|cpw/mods)/|mixinextras-forge'; fi)
 EOL

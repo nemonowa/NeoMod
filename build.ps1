@@ -69,6 +69,9 @@ if ($mc -and (Test-Path "$mc\libraries")) {
         if ($skipped.Count -gt 0) { Write-Host "skipped $($skipped.Count) Forge / Minecraft jars in libraries (set BUILD_FORGE=1 to use them)" }
         $libJars = @($libJars | Where-Object { $_.FullName -notmatch $forgeLib })
     }
+    # The vanilla client jar (versions\<version>\<version>.jar) goes first, so no other copy of Minecraft can shadow it.
+    $vanilla = "$mc\versions\$Version\$Version.jar"
+    if (Test-Path $vanilla) { $jars = @(Get-Item $vanilla) + $jars }
     $jars += $libJars
 } else {
     Write-Host "WARNING: .minecraft\libraries not found. Fabric Loader / Mixin / MixinExtras / Gson / Guava jars are needed." -ForegroundColor Yellow
@@ -99,7 +102,7 @@ foreach ($j in ($jars | Where-Object { $_.Name -like 'fabric-loader*' })) {
 $cpList = @($cpList | Where-Object { $_ -notmatch 'mixinextras-[a-z]+-0\.[0-4]\.' })
 $cp = $cpList -join ';'
 Write-Host "selected jars (key libraries):"
-$cpList | Where-Object { $_ -match 'gson|mixinextras|sponge-mixin|fabric-loader|guava' } | ForEach-Object { Write-Host "  $_" }
+$cpList | Where-Object { $_ -match 'gson|mixinextras|sponge-mixin|fabric-loader|guava|minecraft-|[\\/]versions[\\/]' } | ForEach-Object { Write-Host "  $_" }
 
 # Remove directories that contain no files (recursively, deepest first).
 # Deleting the stub packages leaves empty parents such as "eu/" and "org/", and `jar` would
