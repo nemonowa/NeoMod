@@ -52,7 +52,7 @@
   "modmenu.viewCredits": "View Credits",
   "modmenu.license": "License:",
   "modmenu.links": "Links:",
-  "modmenu.source": "Source",
+  "modmenu.source": "GitHub (Source)",
   "modmenu.install_version": "Install version %s",
   "modmenu.downloadLink": "Download",
   "modmenu.bluesky": "Bluesky",

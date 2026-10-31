@@ -91,7 +91,7 @@
   ],
   "contact": {
     "homepage": "https://discord.gg/nqx8esTwzS",
-    "sources": "https://discord.gg/nqx8esTwzS",
+    "sources": "https://github.com/nemonowa/NeoMod",
     "issues": "https://discord.gg/nqx8esTwzS"
   },
   "environment": "*",
