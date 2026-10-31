@@ -1,11 +1,11 @@
 # NeoMod build script (JDK only: javac + jar). No Gradle / Loom needed.
-#   build.bat                       -> NeoMod.jar (next to build.bat; intermediate files go to bin\)
+#   build.bat                       -> neomod.jar (next to build.bat; intermediate files go to bin\)
 #   set JAVA_RELEASE=25 / set MC_DIR=C:\path\to\.minecraft  (optional)
 # NOTE: this file is ASCII-only on purpose (cmd/PowerShell 5.1 code page safe).
 $ErrorActionPreference = 'Continue'
 Set-Location -LiteralPath $PSScriptRoot
 
-$Name    = 'NeoMod'
+$Name    = 'neomod'
 $Version = '26.3'
 $Release = if ($env:JAVA_RELEASE) { [int]$env:JAVA_RELEASE } else { 25 }
 $Out     = 'bin'

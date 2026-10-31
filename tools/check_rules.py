@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""agents.md の規約のうち、機械で確認できるものを検査する (標準ライブラリだけ。Python 3.8 以上)。
+"""docs/rules.md の規約のうち、機械で確認できるものを検査する (標準ライブラリだけ。Python 3.8 以上)。
 
 使い方: プロジェクトのルートで  python tools/check_rules.py
 違反があれば一覧を表示して終了コード 1。規約を変えたときは、この中の表 (EXPECTED_DEFAULTS など) も合わせて直す。
@@ -201,7 +201,7 @@ else:
     section = config_text[marker:end if end > 0 else len(config_text)]
     for _, key, default in re.findall(r'BooleanConfigOption\s+(\w+)\s*=\s*new BooleanConfigOption\("(\w+)",\s*(true|false)\)', section):
         if key not in EXPECTED_DEFAULTS:
-            fail("P-41", "ModManagerConfig", "新しい機能スイッチ " + key + " が tools/check_rules.py と agents.md の表に無い (既定は OFF が原則)")
+            fail("P-41", "ModManagerConfig", "新しい機能スイッチ " + key + " が tools/check_rules.py と docs/rules.md の表に無い (既定は OFF が原則)")
 
 for lang in ("en_us", "ja_jp"):
     lang_path = os.path.join(RES, "assets", "neo", "lang", lang + ".json")
@@ -325,6 +325,19 @@ for path in glob.glob(COMPAT + "/**/*.java", recursive=True):
 build_sh = read(os.path.join(ROOT, "build.sh"))
 if "src/compat/java" not in build_sh or not re.search(r"--release 8\b.*compat|compat.*--release 8\b", build_sh.replace(chr(10), " ")):
     fail("P-92", "build.sh", "src/compat を --release 8 でコンパイルしていない")
+
+
+# ---- P-76: 文書・記録に、誰が指示したかの注記を書かない ----
+md_files = [os.path.join(ROOT, "README.md")]
+for d in ("docs", "admin"):
+    for dirpath, _, names in os.walk(os.path.join(ROOT, d)):
+        md_files += [os.path.join(dirpath, n) for n in names if n.endswith(".md") and n != "refactor_notes_archive.md"]
+for path in md_files:
+    if not os.path.isfile(path):
+        continue
+    for no, line in enumerate(read(path).splitlines(), 1):
+        if "P-76" not in line and re.search(r"ユーザー(の)?(指示|明示)", line):
+            fail("P-76", "%s:%d" % (os.path.relpath(path, ROOT), no), "誰が指示したかの注記は書かない (決めた内容と理由だけを書く)")
 
 
 # ---- 出力 ----

@@ -1,17 +1,17 @@
-# エージェント向け 方針・規約 (Policy Rules)
+# 開発の規約 (Policy Rules)
 
-この文書は、このプロジェクト (Minecraft 26.3 向け Fabric Mod 「neo」/ NeoMod) を触る**エージェントが必ず守る規約**です。
-人間の開発者向けの説明は `docs/development.md`、変更の経緯は `refactor_notes.md`。ここは「やってよいこと・いけないこと」だけを書きます。
-規約は **ID (P-xx)** で参照します。規約を変えるのは**ユーザーの指示があったときだけ**で、変えたら `tools/check_rules.py` も合わせて直します。
+このプロジェクト (Minecraft 26.3 向け Fabric Mod 「neo」/ NeoMod) を変更する時に守る規約です。
+機能の説明は [`development.md`](development.md)。ここは「やってよいこと・いけないこと」だけを書きます。
+規約は **ID (P-xx)** で参照します (コードのコメントからも参照しています)。規約を変えたら `tools/check_rules.py` も合わせて直します。
 
-**変更を終える前に必ず**: `python tools/check_rules.py` を実行し、違反 0 にする (機械で確認できる規約: P-04 / 11〜14 / 16 / 26 / 40 / 41 / 50 / 52 / 60 / 61。チェックリストは末尾)。
+**変更を終える前に必ず**: `python tools/check_rules.py` を実行し、違反 0 にする (機械で確認できる規約: P-04 / 11〜14 / 16 / 26 / 40 / 41 / 50 / 52 / 60 / 61 / 92。チェックリストは末尾)。
 
 ---
 
 ## 1. プロジェクトの前提
 
 - **P-01 対象**: Minecraft **26.3** (非難読化、リマップ不要)、**Fabric Loader** 向けの Mod。Java **25**。
-- **P-02 ビルド**: Gradle / Loom は使わない。`build.bat` / `build.ps1` / `build.sh` が **javac + jar だけ**でビルドする。ビルドの正は**ユーザーの `build.bat` の結果**で、エージェントの手元のコンパイルは補助 (P-71)。
+- **P-02 ビルド**: Gradle / Loom は使わない。`build.bat` / `build.ps1` / `build.sh` が **javac + jar だけ**でビルドする。ビルドの正は **`build.bat` の結果**。
 - **P-03 出自**: Mod Menu 部分は**完全に独立したフォーク**。機能が同じなら、コードはいくら変えてよい。Spawner Info 2.0.0 / EnchantToolTip 2.0.0 (どちらも CC0-1.0) は、元の jar にソースが無かったためデコンパイルして取り込んだもの。
 - **P-04 言語**: ユーザーとのやり取り・コメント・ドキュメントは**日本語**。翻訳は `en_us` と `ja_jp` の**両方**を必ず用意する (`assets/neo/lang/`)。
 - **P-05 アセットの名前空間**: 同梱アセット (テクスチャ・スプライト・アイコン・lang) は **`assets/neo/` だけ**に置く。名前空間は `neo.util.NeoAssets` (`NAMESPACE` / `path(...)`) を使い、`"modmenu"` などをアセットのパスに直書きしない。別物なので変えない: 翻訳キーの接頭辞 (`option.modmenu.…` など)・設定の保存先 (`options.txt` の `neo_` 行)・ネットワークのチャンネル ID・データの保存先 (`data/neo/`)。Mod の ID (`fabric.mod.json` の `id` と `mods.toml` の `modId`、`NeoForgeMod.MOD_ID`) は `neo` で、名前空間と同じ値だが別物なので `NeoAssets.NAMESPACE` から作らない。`tools/check_rules.py` が、名前空間が `neo` だけであること・参照しているアセットが実在することを検査する。
@@ -78,23 +78,18 @@
 ## 8. 変更の進め方
 
 - **P-70 リファクタリングは挙動を変えない**。挙動が変わる整理は、**変更案を一覧にしてユーザーが採否を決める**。
-- **P-71 検証**: 手元に JDK 25 を入れ、**実際の API に対して自分のコードを完全にコンパイルする**。classpath は Minecraft 26.3 の jar + Gson / Guava / slf4j / commons-lang3 / fastutil / ASM / log4j-api (Ubuntu の apt で入る) に加え、**Mixin・MixinExtras・Fabric Loader・Mojang の DFU・Brigadier は GitHub からソースを `git clone --depth 1` して `-sourcepath` に渡す** (jar は maven が使えないため)。**「cannot find symbol」を「ライブラリが無いから」と除外してはいけない** (これで `ChunkPos.asLong` が 26.3 に無いという本物のエラーを見逃した)。許容するのは、そのコードが依存する**環境に実在するがここに無いライブラリ** (LWJGL の SDL など、`ParentEntry` の 2 件) だけで、除外した件数と中身を報告に書く。`javac -proc:none` は Mixin の対象 (メソッド名・記述子・ordinal) を検証しないので、それはバイトコードで確認する (P-62)。`tools/check_rules.py` も通す。**コンパイル・実機で確認していないことは、確認したことと分けて必ず書く**。
-- **P-72 設計の選択はユーザーに聞く**: 設計方針・既定値・範囲・見た目などの**判断が分かれる点は、選択肢を挙げて質問**する。ユーザーの指示が具体的なときは、聞き返さず実装する。曖昧なまま走らない。
-- **P-73 言われたことだけを実装**: 求められていない機能・キー・設定・ライブラリを足さない。足したくなったら提案にとどめる。
-- **P-74 ドキュメントを揃える**: 機能・設定・規約を変えたら `docs/development.md` (設定表・機能の節)、`refactor_notes.md` (実施内容・確認できたこと・**未確認**・判断)、翻訳、この文書を**同時に**更新する。
-- **P-75 報告**: 完了報告は日本語で、(1) 何をしたか (2) 確認できたこと (3) **未確認のこと** (4) ユーザーの判断が要る点、の順に短く書く。成果物は `/mnt/user-data/outputs` の zip (`*.class`・ビルド出力 (`bin/` とルートの `NeoMod.jar`) を含めない)。ただし `libs/` の jar (特に `libs/minecraft/minecraft-26.3.jar`) は**実体で入れる** (シンボリックリンクにしない。入っていないとユーザーの `build.bat` が全部失敗する)。
+- **P-74 ドキュメントを揃える**: 機能・設定・規約を変えたら `docs/development.md` (設定表・機能の節)、翻訳、この文書を**同時に**更新する。
+- **P-76 指示した人を書かない**: 文書・記録に「(ユーザー指示)」のような、誰が指示・決定したかの注記を書かない。決めた内容と理由だけを書く。作者を「ユーザー」と呼ばない。`tools/check_rules.py` が `README.md`・`docs/`・`admin/` の Markdown を検査する。
 
 ## 9. 安全
 
-- **P-80 コマンド確認の省略**: 「署名が必要なコマンド」の確認は**残す** (本から勝手に自分名義で発言させられるのを防ぐ保護)。 **リンク (URL) を開く確認は省略する** (ユーザー指示。同じ設定 `skip_command_confirmation` に統合。`MixinGuiLinkConfirmation`)。
+- **P-80 コマンド確認の省略**: 「署名が必要なコマンド」の確認は**残す** (本から勝手に自分名義で発言させられるのを防ぐ保護)。 **リンク (URL) を開く確認は省略する** (同じ設定 `skip_command_confirmation` に統合。`MixinGuiLinkConfirmation`)。
 - **P-81 テレポート等**: `/tp` などを**コマンドとして送るだけ**。権限の判定を迂回しない・権限を前提にしない。
 - **P-82 ファイル操作**: ユーザーが渡していない場所を読み書きしない。パスは組み立てずに `Identifier` 等で検証する。ワールドの既存データを**上書き・削除しない**。
 
-## 10. エージェントの運用
+## 10. 古い環境での起動
 
-- **P-90 モデルの使い分け**: トークンを節約するため、サブエージェントが使えるときは、**実装は Sonnet、単純作業は Haiku** に任せる。設計判断・ユーザーへの質問・最終確認はメインのエージェントが行う。使えない環境ではメインが直接行い、そのことを報告する。
 - **P-92 古い環境でも最低限起動する (縮退起動)**: 本体 (`neo.*`) は Java 25 のバイトコード・Minecraft 26.3 専用。ローダーが最初に呼ぶ入口だけを `src/compat` (`neo.compat`。**Java 8 のバイトコード = `--release 8`**) に置き、環境が合う (Java 25 以上 かつ Minecraft 26.3 以上) ときだけ本体を呼ぶ。合わないときは `mods/NeoMods.log` に理由を書いて何もしない (**ゲームを止めない**)。そのため: (1) `fabric.mod.json` の `preLaunch` / `main` / `client` は `neo.compat.FabricGate::…` を指す (本体を直接指さない)。(2) `fabric.mod.json` に `mixins` を書かない (古い環境で Java 25 の Mixin クラスを読んでしまうため。`FabricGate#preLaunch` が `mixins.neo.json` を登録する)。(3) `depends` に `minecraft` / `java` を書かない。Forge の `mods.toml` にも Minecraft の版の依存を書かない。(4) `@Mod` は `neo.compat.ForgeGate` だけ (コンパイル専用の代用品 `src/compat/stubs` を使い、jar には入れない)。(5) `src/compat` は Java 標準 (と `@Mod` の代用品) 以外を import しない (リフレクションで文字列として呼ぶ)。(6) ビルドの基準は **JDK 25 (本体・Minecraft も 25)**、**Java 8 は `src/compat` だけ** (`JAVA_RELEASE` を変えても compat は 8 のまま。Eclipse は JDK 25 で全体をコンパイルするので、compat の Java 9 以降の書き方・API は `check_rules.py` が先に止める。最終的な基準は `--release 8`)。`check_rules.py` が (1)〜(6) を検査する。
-- **P-91 ルールを守れない / 衝突するとき**: 黙って破らない。どの規約と衝突するかを示して、ユーザーに選択肢を出す。
 
 ---
 
@@ -108,5 +103,5 @@
 6. [ ] 新しいサードパーティ・Fabric API・UI ツールキットを足していない (P-50〜52)
 7. [ ] Mixin は薄く、`require` を明示し、注入先をバイトコードで確認した (P-60〜63)
 8. [ ] 実際の API (Minecraft jar + Mixin / MixinExtras / Fabric Loader / DFU / Brigadier のソース) に対して JDK 25 で完全にコンパイルし、エラー 0 (LWJGL SDL の 2 件を除く)。`python tools/check_rules.py` が違反 0
-9. [ ] `docs/development.md` / `refactor_notes.md` / 翻訳 / この文書を更新した (P-74)
-10. [ ] 報告に「確認したこと」と「未確認のこと」を分けて書いた (P-71, P-75)
+9. [ ] `docs/development.md` / 翻訳 / この文書を更新した (P-74)
+10. [ ] 「確認したこと」と「未確認のこと」を分けて記録した

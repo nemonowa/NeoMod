@@ -43,7 +43,7 @@ Author   : argonaute_nemo
 ## ❱ 導入【Introduction】
 
 1. Fabric Loader を入れた Minecraft 26.3 を用意する
-2. `NeoMod.jar` を `.minecraft/mods/` に置く
+2. `neomod.jar` を `.minecraft/mods/` に置く
 3. 起動して、タイトル画面の「Mods」から設定を開く
 
 ---

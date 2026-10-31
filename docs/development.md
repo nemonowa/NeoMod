@@ -2,7 +2,7 @@
 
 Gradle・Loom・gradlew は不要。**JDK 25 の `javac` と `jar` だけ**でビルドします。
 
-    build.bat         # Windows → NeoMod.jar (build.bat と同じ階層。途中の生成物は bin/ に出る)
+    build.bat         # Windows → neomod.jar (build.bat と同じ階層。途中の生成物は bin/ に出る)
 
 Minecraft 26.3 本体(Mojang 公式の無加工 jar)は `libs/` に同梱済みです。Fabric API は一切不要です。
 Fabric Loader / Mixin / Guava など残りは、Fabric Loader 0.19.5 を導入済みの
@@ -202,8 +202,8 @@ OFF の機能は、**毎フレーム・毎 tick・サーバー側の処理を入
 - 終わる: キー・マウスの操作 / 画面が開く / ダメージ / 死亡 / 設定を OFF / ワールドを離れる。終わると元の視点と HUD に戻る。**ダメージと死亡で止まったときは、次の操作があるまで再開しない**
 - OFF のとき: 毎 tick 設定を 1 回引いて即 return。入力のフックは状態変数を見るだけで戻る
 
-## 開発規約 (エージェント向け)
-実装のルール・プロジェクトの規約 (データの保存、バニラ順守、不要なサードパーティを避ける、設定の既定値、Mixin、検証の手順など) は **[`agents.md`](../agents.md)** にまとめています (`claude.md` は `agents.md` を読み込むだけ)。規約は ID (P-xx) で参照します。
+## 開発の規約
+実装のルール・プロジェクトの規約 (データの保存、バニラ順守、不要なサードパーティを避ける、設定の既定値、Mixin、検証の手順など) は **[`rules.md`](rules.md)** にまとめています。規約は ID (P-xx) で参照します。
 機械で確認できる規約は `python tools/check_rules.py` で検査できます (標準ライブラリだけ・Python 3.8 以上。違反があれば一覧を表示して終了コード 1)。変更を終える前に実行して、違反 0 にしてください。
 
 ## Mod Menu の固定設定 (設定項目なし)
