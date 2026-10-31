@@ -14,6 +14,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.packs.resources.Resource;
+import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.entity.vehicle.minecart.MinecartSpawner;
 import net.minecraft.world.level.storage.TagValueOutput;
@@ -29,6 +30,8 @@ public final class SpawnerInfoMod {
    private static final double SEARCH_RADIUS = 64.0;
    private static final String[] SUMMON_FUNCTION_DIRS = {"function", "functions"};
    private static int tickCounter = 0;
+   /** NAME_CACHE を作ったときのリソースマネージャー。/reload で MinecraftServer#reloadResources が新しいものに差し替えるので、違っていたら NAME_CACHE を捨てる。 */
+   private static ResourceManager cachedResourceManager;
    /**
     * 送信してよいか。専用サーバーでは常に true (クライアントの設定は届かないため従来どおり送る)。
     * シングル/LAN ホストでは、クライアント側 (SpawnerInfoClient) が設定に合わせて更新する。
@@ -100,10 +103,16 @@ public final class SpawnerInfoMod {
    }
 
    private static String resolveCustomName(MinecraftServer server, int summonId) {
+      ResourceManager resourceManager = server.getResourceManager();
+      if (resourceManager != cachedResourceManager) {
+         NAME_CACHE.clear();
+         cachedResourceManager = resourceManager;
+      }
+
       return NAME_CACHE.computeIfAbsent(summonId, id -> {
          Optional<Resource> resource = Optional.empty();
          for (String dir : SUMMON_FUNCTION_DIRS) {
-            resource = server.getResourceManager()
+            resource = resourceManager
                .getResource(Identifier.fromNamespaceAndPath("neofunction", dir + "/asset/summon/" + id + ".mcfunction"));
             if (resource.isPresent()) {
                break;
