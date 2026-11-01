@@ -2,9 +2,11 @@ package neo.map;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.InputConstants.Type;
+import neo.data.NeoData;
 import neo.event.NeoClientEvents;
 import neo.event.NeoKeyMappings;
 import neo.menu.config.ModManagerConfig;
+import neo.util.PermissionGate;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.KeyEvent;
@@ -20,14 +22,19 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.levelgen.Heightmap;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * ワールドマップ (M キー) のクライアント側の入口。
  * 設定 world_map が OFF の間は、更新も保存もせず、tick では設定を 1 回引いて戻るだけ。
  * 地図データは、バニラのワールドの data フォルダへ、バニラの地図と同じ階層・形式 (minecraft/maps/&lt;id&gt;.dat) で蓄積し、
- * 索引など Mod 固有のデータは data/neo/ の下に置く (保存の共通規約: {@link neo.data.NeoData})。ピンは保存しない。
+ * 索引・ピンなど Mod 固有のデータは data/neo/ の下に置く (保存の共通規約: {@link neo.data.NeoData})。
  */
 public final class WorldMapClient {
     private static final KeyMapping OPEN_KEY = NeoKeyMappings.register(new KeyMapping("key.neo.map", Type.KEYBOARD, InputConstants.KEY_M, NeoKeyMappings.MAIN));
@@ -65,6 +72,11 @@ public final class WorldMapClient {
                     currentMarkers.saveIfDirty();
                 }
 
+                MapPins currentPins = pins;
+                if (currentPins != null) {
+                    currentPins.saveIfChanged();
+                }
+
             } catch (RuntimeException ignored) {
                 // 終了時の保存はベストエフォート
             }
@@ -95,6 +107,7 @@ public final class WorldMapClient {
             saveTimer = 0;
             store.saveAsync();
             markers.saveIfDirty();
+            pins.saveIfChanged();
         }
 
         while (OPEN_KEY.consumeClick()) {
@@ -116,7 +129,7 @@ public final class WorldMapClient {
         worldKey = key;
         Path dataFolder = dataFolder(client, key);
         store = new MapStore(dataFolder, client.getFixerUpper(), client.level.registryAccess());
-        pins = new MapPins(); // ピンは保存しない (このワールドで遊んでいる間だけ)
+        pins = new MapPins(dataFolder); // ピン (保存する)
         markers = new MapMarkers(dataFolder); // 発見した構造物・見つけた旗 (保存する)
         UPDATER.reset();
         saveTimer = 0;
@@ -134,7 +147,38 @@ public final class WorldMapClient {
             return server.getWorldPath(LevelResource.DATA);
         }
 
-        return client.gameDirectory.toPath().resolve("neo").resolve(key).resolve("data");
+        Path root = client.gameDirectory.toPath().resolve("neo");
+        Path folder = root.resolve(key);
+        moveLegacyFolder(client.getCurrentServer(), root, folder);
+        return folder.resolve("data");
+    }
+
+    /**
+     * サーバーの識別を正規化する前 (アドレスをそのまま使っていた) のフォルダが残っていて、新しい名前のフォルダがまだ無ければ、
+     * 蓄積した地図を失わないように新しい名前へ移す。移せなかったときは、新しい場所を空から始める。
+     */
+    private static void moveLegacyFolder(ServerData data, Path root, Path folder) {
+        if (data == null || Files.exists(folder)) {
+            return;
+        }
+
+        // 旧い名前: アドレスをそのまま / 正規化だけした名前 (どちらも旧い sanitize で作ったもの)。大文字小文字だけ違うフォルダも対象にする
+        Set<String> legacyNames = new HashSet<>();
+        legacyNames.add(("mp_" + legacySanitize(data.ip)).toLowerCase(Locale.ROOT));
+        legacyNames.add(("mp_" + legacySanitize(normalizeAddress(data.ip))).toLowerCase(Locale.ROOT));
+        try (Stream<Path> children = Files.list(root)) {
+            for (Path child : (Iterable<Path>) children::iterator) {
+                String name = child.getFileName().toString();
+                if (!name.equals(folder.getFileName().toString()) && Files.isDirectory(child)
+                        && legacyNames.contains(name.toLowerCase(Locale.ROOT))) {
+                    if (NeoData.moveFolder(child, folder)) {
+                        return; // 複数残っていても、移すのは 1 つだけ (後のものは手動で統合する)
+                    }
+                }
+            }
+        } catch (IOException e) {
+            // 一覧を読めなければ、移行はしない (新しい場所を空から始める)
+        }
     }
 
     private static void endSession() {
@@ -146,6 +190,7 @@ public final class WorldMapClient {
         WideMapScan.abort();
         store.close();
         markers.saveIfDirty();
+        pins.saveIfChanged();
         store = null;
         pins = null;
         markers = null;
@@ -161,13 +206,45 @@ public final class WorldMapClient {
 
         ServerData data = client.getCurrentServer();
         if (data != null) {
-            return "mp_" + sanitize(data.ip);
+            return "mp_" + sanitize(normalizeAddress(data.ip));
         }
 
         return "unknown";
     }
 
+    /**
+     * サーバーのアドレスの正規化: 同じサーバーが別のワールドとして分かれないようにする。
+     * 大文字小文字を区別せず、末尾の「.」と既定のポート (:25565) は付けても付けなくても同じ。
+     */
+    static String normalizeAddress(String address) {
+        String value = address.trim().toLowerCase(Locale.ROOT);
+        if (value.endsWith(":25565")) {
+            value = value.substring(0, value.length() - ":25565".length());
+        }
+
+        while (value.endsWith(".")) {
+            value = value.substring(0, value.length() - 1);
+        }
+
+        return value;
+    }
+
+    /**
+     * フォルダ名に使える形にする。変えずに済む名前はそのまま。記号を置き換えたり長さを切ったりした名前は、
+     * 元の名前のハッシュを付けて、別のサーバー (a:1 と a_1 など) が同じフォルダにならないようにする。
+     */
     static String sanitize(String name) {
+        String safe = legacySanitize(name);
+        if (safe.equals(name) && safe.length() <= 80) {
+            return safe;
+        }
+
+        String hash = String.format(Locale.ROOT, "%08x", name.hashCode());
+        return (safe.length() > 64 ? safe.substring(0, 64) : safe) + "_" + hash;
+    }
+
+    /** ハッシュを付ける前の名前の付け方 (旧フォルダの移行用)。 */
+    private static String legacySanitize(String name) {
         String safe = name.replaceAll("[^a-zA-Z0-9._-]", "_");
         return safe.length() > 80 ? safe.substring(0, 80) : safe;
     }
@@ -199,8 +276,8 @@ public final class WorldMapClient {
         Minecraft client = Minecraft.getInstance();
         ClientLevel level = client.level;
         LocalPlayer player = client.player;
-        if (level == null || player == null) {
-            return;
+        if (level == null || player == null || !PermissionGate.allowed(player)) {
+            return; // 権限が無いときは /tp を送らない (サーバーに断られるだけで、座標不明のときは待ち続けてしまう)
         }
 
         pendingTeleport = null;

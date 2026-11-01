@@ -122,7 +122,7 @@ final class WideMapScan {
     }
 
     /** 地点の間隔: 縁を除いた内側 (最も粗いスケールの縁 2 ピクセルぶんを除く) の円に、どのピクセルも収まる値。 */
-    private static int spacingOf(int updateRadius) {
+    static int spacingOf(int updateRadius) { // MapUpdater の外側の更新も同じ間隔を使う
         int inner = updateRadius - 2 * (1 << MapStore.MAX_SCALE);
         return Math.max(8, ((int) (Math.sqrt(2.0) * inner)) & ~7);
     }

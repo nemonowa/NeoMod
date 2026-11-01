@@ -84,6 +84,8 @@ public final class HeldMapView {
     private static ItemStack stack;
     private static ResourceKey<Level> dimension;
     private static MapItemSavedData registered;
+    /** 仮 ID を登録した ClientLevel (ディメンション移動・再接続で別のレベルになったら、登録し直す)。 */
+    private static ClientLevel registeredLevel;
 
     /** 手持ちの地図の表示に使う、表示位置を決めた窓。origin は左上 (ピクセル 0,0) のブロック座標。 */
     record View(int scale, int originX, int originZ) {
@@ -148,6 +150,7 @@ public final class HeldMapView {
         if (!value) {
             fullscreen = false;
             registered = null; // 次に開くとき、必ず登録し直す
+            registeredLevel = null; // 古い ClientLevel を握り続けない
             displayed = null;
             if (texture != null) {
                 Minecraft.getInstance().getTextureManager().release(TEXTURE_ID);
@@ -187,6 +190,7 @@ public final class HeldMapView {
             Arrays.fill(DATA, null);
             dimension = dimensionKey;
             registered = null;
+            registeredLevel = null;
         }
 
         boolean opening = texture == null;
@@ -226,9 +230,10 @@ public final class HeldMapView {
         shownData.addClientSideDecorations(decorations);
 
         // バニラの地図として登録する (装飾と、手に持つ ItemStack の MAP_ID の行き先)。画像は MixinMapRenderer で差し替える
-        if (registered != shownData) {
+        if (registered != shownData || registeredLevel != level) {
             level.overrideMapData(VIRTUAL_ID, shownData);
             registered = shownData;
+            registeredLevel = level;
         }
     }
 

@@ -55,8 +55,20 @@ public final class NeoData {
         }
     }
 
-    /** data を書く (一時ファイルに書いてから置き換えるので、途中で落ちても壊れない)。成功したら true。 */
-    public static boolean write(Path dataFolder, String path, CompoundTag data) {
+    /** フォルダを丸ごと移す (名前の付け方を変えたときの引っ越し用)。移せたら true、失敗したときはログに書いて false。 */
+    public static boolean moveFolder(Path from, Path to) {
+        try {
+            Files.createDirectories(to.getParent());
+            Files.move(from, to);
+            return true;
+        } catch (IOException e) {
+            LOGGER.warn("[NeoData] 移せませんでした: {} -> {}", from, to, e);
+            return false;
+        }
+    }
+
+    /** data を書く (一時ファイルに書いてから置き換えるので、途中で落ちても壊れない)。成功したら true。終了時の保存フックと同じ一時ファイルを奪い合わないよう、直列にする。 */
+    public static synchronized boolean write(Path dataFolder, String path, CompoundTag data) {
         Path file = file(dataFolder, path);
         Path temp = file.resolveSibling(file.getFileName() + ".tmp");
         CompoundTag root = new CompoundTag();

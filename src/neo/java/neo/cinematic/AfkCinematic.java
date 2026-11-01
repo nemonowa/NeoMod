@@ -21,11 +21,11 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * AFK シネマティック: 何も操作せずに 30 秒が過ぎると、プレイヤーの周りを映画のようにカメラが動き回る (設定 afk_cinematic、既定 ON)。
+ * AFK シネマティック: 何も操作せずに放置時間 (設定 afk_cinematic_idle。既定 3 分、10 秒〜10 分) が過ぎると、プレイヤーの周りを映画のようにカメラが動き回る (設定 afk_cinematic、既定 ON)。
  * 独自実装 (参考: Ji AFK Cinematic 2.3.1 の動作 (MIT、jiory_)。コードは取り込んでいない。音楽とキー割り当ては持たない)。
  *
  * 動作:
- *  - 画面を開いていない状態で、キー・マウスの操作が {@link #IDLE_TICKS} 続けて無いと始まる。放置の判定は Mixin から届く操作 (onActivity) と、毎 tick の数え上げ
+ *  - 画面を開いていない状態で、キー・マウスの操作が {@link #idleTicks()} 続けて無いと始まる。放置の判定は Mixin から届く操作 (onActivity) と、毎 tick の数え上げ
  *  - F1 の扱い (バニラの F1 の処理 Hud#toggle を、neo.mixin.MixinGuiCinematic が肩代わりする): GUI を隠した状態でもう一度 F1 を押すと、GUI を出さずにシネマティックが始まる。
  *    シネマティック中に F1 を押すと、シネマティックが終わって GUI が戻る (放置で始まった場合も)。F1 は放置の解除としては数えない (上の onKeyPress)
  *    手動で始めた場合は、ほかの操作で終わっても GUI が出た通常の画面に戻る (F1 で隠した状態は戻さない)
@@ -36,8 +36,8 @@ import java.util.Random;
  * 設定 OFF のとき: 毎 tick 設定を 1 回引いて即 return。入力のフックは状態変数を見るだけで戻る (設定も引かない)。
  */
 public final class AfkCinematic {
-    /** 放置してから始まるまでの tick (30 秒 = 600 tick)。 */
-    public static final int IDLE_TICKS = 30 * 20;
+    /** 設定の 1 刻み (10 秒) の tick 数。 */
+    private static final int IDLE_STEP_TICKS = 10 * 20;
     /** 1 カットの長さ (tick。10 秒)。 */
     static final int SHOT_TICKS = 10 * 20;
 
@@ -140,9 +140,14 @@ public final class AfkCinematic {
             return;
         }
 
-        if (++idleTicks >= IDLE_TICKS) {
+        if (++idleTicks >= idleTicks()) {
             start(client, player);
         }
+    }
+
+    /** 放置してから始まるまでの tick (設定 afk_cinematic_idle は 10 秒単位。既定 18 = 3 分 = 3600 tick)。 */
+    public static int idleTicks() {
+        return ModManagerConfig.AFK_CINEMATIC_IDLE.getValue() * IDLE_STEP_TICKS;
     }
 
     private static void tickActive(Minecraft client, LocalPlayer player) {
@@ -162,7 +167,7 @@ public final class AfkCinematic {
     private static void start(Minecraft client, LocalPlayer player) {
         idleTicks = 0;
         if (client.getCameraEntity() != player) {
-            return; // 他のエンティティの視点で見ているときは始めない (次の 30 秒後にまた判定)
+            return; // 他のエンティティの視点で見ているときは始めない (次の放置時間の後にまた判定)
         }
 
         begin(client, player, false);

@@ -6,6 +6,7 @@ import java.util.Set;
 
 public class ConfigOptionStorage {
     private static final Map<String, Boolean> BOOLEAN_OPTIONS = new HashMap<>();
+    private static final Map<String, Integer> INT_OPTIONS = new HashMap<>();
     private static final Map<String, Enum<?>> ENUM_OPTIONS = new HashMap<>();
     private static final Map<String, Set<String>> STRING_SET_OPTIONS = new HashMap<>();
 
@@ -23,6 +24,14 @@ public class ConfigOptionStorage {
 
     public static boolean getBoolean(String key) {
         return BOOLEAN_OPTIONS.get(key);
+    }
+
+    public static void setInt(String key, int value) {
+        INT_OPTIONS.put(key, value);
+    }
+
+    public static int getInt(String key) {
+        return INT_OPTIONS.get(key);
     }
 
     @SuppressWarnings("unchecked")

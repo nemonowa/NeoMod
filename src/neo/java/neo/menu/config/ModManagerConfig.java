@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 
 import net.minecraft.client.OptionInstance;
+import net.minecraft.network.chat.Component;
 
 public class ModManagerConfig {
     public static final EnumConfigOption<TitleMenuButtonStyle> MODS_BUTTON_STYLE = new EnumConfigOption<>("mods_button_style", TitleMenuButtonStyle.REPLACE_REALMS);
@@ -47,8 +48,10 @@ public class ModManagerConfig {
     /** サウンドブラウザ: クリエイティブインベントリの右側面のタブから、読み込み済みの音を一覧・試聴・/playsound をコピー (neo.sound)。 */
     public static final BooleanConfigOption SOUND_BROWSER = new BooleanConfigOption("sound_browser", true);
 
-    /** AFK シネマティック: 30 秒間操作しないと、カメラが映画のようにプレイヤーの周りを動く。何か操作すると止まる (neo.cinematic)。動作は Ji AFK Cinematic を参考にした独自実装 (音楽・キー割り当てなし)。 */
+    /** AFK シネマティック: 放置時間 (既定 3 分) の間操作しないと、カメラが映画のようにプレイヤーの周りを動く。何か操作すると止まる (neo.cinematic)。動作は Ji AFK Cinematic を参考にした独自実装 (音楽・キー割り当てなし)。 */
     public static final BooleanConfigOption AFK_CINEMATIC = new BooleanConfigOption("afk_cinematic", true);
+    /** AFK シネマティックが始まるまでの放置時間。**10 秒単位**のスライダー (1〜60 = 10 秒〜10 分。既定 18 = 3 分)。options.txt の neo_afk_cinematic_idle 行の値も、この単位の整数。 */
+    public static final IntConfigOption AFK_CINEMATIC_IDLE = new IntConfigOption("afk_cinematic_idle", 18, 1, 60, ModManagerConfig::afkIdleText);
 
     @FileOnlyConfig
     public static final BooleanConfigOption MODIFY_TITLE_SCREEN = new BooleanConfigOption("modify_title_screen", true);
@@ -86,6 +89,21 @@ public class ModManagerConfig {
         }
 
         return options.toArray(OptionInstance[]::new);
+    }
+
+    /** AFK シネマティックの放置時間 (10 秒単位の値) を、「30秒」「3分」「3分30秒」のように見せる。 */
+    private static Component afkIdleText(int tenSecondSteps) {
+        int seconds = tenSecondSteps * 10;
+        String base = "option.modmenu.afk_cinematic_idle.";
+        if (seconds < 60) {
+            return Component.translatable(base + "seconds", seconds);
+        }
+
+        if (seconds % 60 == 0) {
+            return Component.translatable(base + "minutes", seconds / 60);
+        }
+
+        return Component.translatable(base + "minutes_seconds", seconds / 60, seconds % 60);
     }
 
     /** 設定画面に出る項目 (ファイル専用でないもの) をすべて既定値に戻す。 */

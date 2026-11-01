@@ -11,6 +11,7 @@ import net.minecraft.world.level.saveddata.maps.MapId;
 import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 import net.minecraft.world.level.storage.SavedDataStorage;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -30,8 +31,12 @@ import java.util.Map;
  */
 final class MapStore implements AutoCloseable {
     private static final String INDEX_PATH = "map/index";
-    /** この Mod が採番する地図 ID の最初の値 (バニラの地図アイテムの ID と重ならない範囲)。 */
-    static final int ID_BASE = 1_000_000;
+    /**
+     * この Mod が採番する地図 ID の最初の値 (バニラの地図アイテムの ID と重ならない範囲)。
+     * 既存のワールドは、索引に保存した next (これ以上) から続けるので、値を変えても今ある ID は変わらない。
+     * 採番のとき、同じ ID のファイルが既にあれば飛ばす (nextFreeId) ので、バニラの地図を上書きしない。
+     */
+    static final int ID_BASE = 1000;
     /** 地図 1 枚の一辺のピクセル数 (バニラの固定値)。 */
     static final int SIZE = 128;
     private static final int OFFSET = 64;
@@ -154,17 +159,30 @@ final class MapStore implements AutoCloseable {
 
     /**
      * 新しい地図を登録する。バニラの地図アイテム作成 (MapItem#createNewSavedData) と同じ手順:
-     * 索引のカウンタから次の ID を取り (ID_BASE 以上)、データを保管庫に set する。
+     * 索引のカウンタから次の ID を取り (ID_BASE 以上。既にファイルがある ID は飛ばす)、データを保管庫に set する。
      */
     MapRef adopt(ResourceKey<Level> dimension, int cellX, int cellZ, MapItemSavedData data) {
         int scale = data.scale;
-        MapId id = new MapId(nextId++);
+        MapId id = new MapId(nextFreeId());
         storage.set(MapItemSavedData.type(id), data);
         index.put(key(dimension, scale, cellX, cellZ), id.id());
         indexDirty = true;
         MapRef ref = new MapRef(id, data);
         loaded.put(id.id(), ref);
         return ref;
+    }
+
+    /**
+     * 次に使う ID。minecraft/maps/&lt;id&gt;.dat が既にあれば (バニラの地図アイテムが先に使っている) 飛ばして、
+     * 次の空きを返す。返した ID の次を nextId に進める。
+     */
+    private int nextFreeId() {
+        Path maps = dataFolder.resolve("minecraft").resolve("maps");
+        while (nextId < Integer.MAX_VALUE && (loaded.containsKey(nextId) || Files.exists(maps.resolve(nextId + ".dat")))) {
+            nextId++;
+        }
+
+        return nextId++;
     }
 
     /** 変更のあった地図を非同期で保存する (バニラのオートセーブと同じ)。 */

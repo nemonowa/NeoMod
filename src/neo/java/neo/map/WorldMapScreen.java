@@ -3,6 +3,7 @@ package neo.map;
 import com.mojang.blaze3d.platform.InputConstants;
 import neo.advancements.ScreenSwitch;
 import neo.menu.config.ModManagerConfig;
+import neo.util.PermissionGate;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -74,6 +75,8 @@ public final class WorldMapScreen extends Screen {
 
     private EditBox nameBox;
     private Button teleportButton;
+    /** 直近の updatePinPanel で見た「テレポートの権限」(画面を開いたまま /op されたときの追従用)。 */
+    private boolean teleportButtonShown;
     private Button iconButton;
     private Button deleteButton;
     private Button scanButton;
@@ -136,7 +139,7 @@ public final class WorldMapScreen extends Screen {
         nameBox.setMaxLength(32);
         nameBox.setHint(Component.translatable("neo.map.pin_name"));
         nameBox.setResponder(text -> {
-            if (selected != null && !text.isEmpty() && !text.equals(selected.name)) {
+            if (selected != null && !text.equals(selected.name)) { // 空にもできる (名前なしのピン)
                 selected.name = text;
             }
         });
@@ -157,6 +160,14 @@ public final class WorldMapScreen extends Screen {
         }
 
         updatePinPanel();
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (teleportButtonShown != canTeleport()) {
+            updatePinPanel(); // 権限が変わったら、テレポートの出し入れを更新する
+        }
     }
 
     private HandMapGeometry.Rect geometry() {
@@ -190,7 +201,10 @@ public final class WorldMapScreen extends Screen {
         lines.add(Component.translatable("neo.map.help.drag").withStyle(ChatFormatting.DARK_GRAY));
         lines.add(Component.translatable("neo.map.help.zoom").withStyle(ChatFormatting.DARK_GRAY));
         lines.add(Component.translatable("neo.map.help.pin").withStyle(ChatFormatting.DARK_GRAY));
-        lines.add(Component.translatable("neo.map.help.teleport").withStyle(ChatFormatting.DARK_GRAY));
+        if (canTeleport()) {
+            lines.add(Component.translatable("neo.map.help.teleport").withStyle(ChatFormatting.DARK_GRAY));
+        }
+
         List<FormattedCharSequence> visual = new ArrayList<>();
         for (Component line : lines) {
             visual.add(line.getVisualOrderText());
@@ -590,7 +604,7 @@ public final class WorldMapScreen extends Screen {
 
         HeldMapView.View view = currentView();
         if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
-            if (event.hasControlDown()) {
+            if (event.hasControlDown() && canTeleport()) {
                 teleportToPoint(Mth.floor(toWorldX(rect, view, mouseX)), Mth.floor(toWorldZ(rect, view, mouseY)));
                 return true;
             }
@@ -712,8 +726,12 @@ public final class WorldMapScreen extends Screen {
         nameBox.active = has;
         iconButton.visible = has;
         iconButton.active = has;
-        teleportButton.visible = has;
-        teleportButton.active = has;
+        boolean canTeleport = has && canTeleport();
+        teleportButtonShown = canTeleport();
+        teleportButton.visible = canTeleport;
+        teleportButton.active = canTeleport;
+        // テレポートが出ないときは、削除ボタンを詰めて欄に空きを作らない
+        deleteButton.setY(canTeleport ? teleportButton.getY() + 22 : teleportButton.getY());
         deleteButton.visible = has;
         deleteButton.active = has;
         if (has && !nameBox.getValue().equals(selected.name)) {
@@ -780,6 +798,11 @@ public final class WorldMapScreen extends Screen {
     }
 
     // ---- テレポート ----
+
+    /** テレポート (/tp) を使えるか: そのプレイヤーの権限 (ゲームマスター以上) だけで決める (PermissionGate)。権限が無いと、ボタンも Ctrl+クリックも出さない。 */
+    private boolean canTeleport() {
+        return PermissionGate.allowed(minecraft.player);
+    }
 
     private void teleportToSelected() {
         if (selected != null) {

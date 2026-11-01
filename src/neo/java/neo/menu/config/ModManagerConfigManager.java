@@ -24,7 +24,7 @@ import net.minecraft.client.Minecraft;
 /**
  * 設定の保存 (P-22): バニラの options.txt に、キー名の頭に {@code neo_} を付けた行
  * ({@code neo_zoom:true} など) で保存する。値は boolean は true/false、enum は小文字の名前、
- * 文字列の集合 (hidden_mods など) は「,」区切り。**既定値から変えた項目の行だけ**を書く (既定値のままの項目は行を作らない)。
+ * 整数 (afk_cinematic_idle など) は 10 進の数字、文字列の集合 (hidden_mods など) は「,」区切り。**既定値から変えた項目の行だけ**を書く (既定値のままの項目は行を作らない)。
  *
  * <p>バニラの {@code Options#processOptions} が受け取る {@code Options.FieldAccess} は package-private で
  * Mixin の注入先の引数に書けないので、{@code Options#load} の直前 ({@link #load}) と {@code Options#save} の直後
@@ -109,7 +109,7 @@ public final class ModManagerConfigManager {
         }
     }
 
-    /** ModManagerConfig の設定項目 (static final の BooleanConfigOption / EnumConfigOption / StringSetConfigOption)。 */
+    /** ModManagerConfig の設定項目 (static final の BooleanConfigOption / IntConfigOption / EnumConfigOption / StringSetConfigOption)。 */
     private static List<Field> optionFields() {
         List<Field> fields = new ArrayList<>();
         for (Field field : ModManagerConfig.class.getDeclaredFields()) {
@@ -118,6 +118,7 @@ public final class ModManagerConfigManager {
             if (Modifier.isStatic(modifiers) && Modifier.isFinal(modifiers)
                     && (BooleanConfigOption.class.isAssignableFrom(type)
                     || StringSetConfigOption.class.isAssignableFrom(type)
+                    || IntConfigOption.class.isAssignableFrom(type)
                     || EnumConfigOption.class.isAssignableFrom(type))) {
                 fields.add(field);
             }
@@ -145,6 +146,8 @@ public final class ModManagerConfigManager {
             }
 
             setOption.setValue(set);
+        } else if (option instanceof IntConfigOption intOption) {
+            intOption.setValue(Integer.parseInt(value.strip())); // 数字でなければ NumberFormatException → 呼び出し側が既定値のままにする
         } else if (option instanceof EnumConfigOption<?> enumOption) {
             enumOption.setFileValue(value);
         }
@@ -157,6 +160,8 @@ public final class ModManagerConfigManager {
             return boolOption.isDefault() ? null : Boolean.toString(boolOption.getValue());
         } else if (option instanceof StringSetConfigOption setOption) {
             return setOption.isDefault() ? null : String.join(",", new TreeSet<>(setOption.getValue()));
+        } else if (option instanceof IntConfigOption intOption) {
+            return intOption.isDefault() ? null : Integer.toString(intOption.getValue());
         } else if (option instanceof EnumConfigOption<?> enumOption) {
             return enumOption.isDefault() ? null : enumOption.getFileValue();
         }
