@@ -17,30 +17,6 @@
 
 ---
 
-## ❱ 情報【Information】
-
-Mod の一覧と設定の画面に、ズーム・ワールドマップ・3D スキンなどの機能を1つの Mod にまとめたもの。<br>
-見た目はバニラのまま。機能はすべて設定画面で個別に ON / OFF できる。
-
-```text
-Mod      : NeoMods
-Version  : 26.3
-Loader   : Fabric（Fabric API は不要）
-Requires : Minecraft 26.3 / Java 25
-Author   : argonaute_nemo
-```
-
----
-
-## ❱ 特徴【Highlights】
-
-- 📦 **1つの jar で完結**：Fabric API などの前提 Mod は要らない
-- 🎨 **バニラの見た目**：画面・アイコンはバニラの絵をそのまま使う
-- 🔘 **全部 ON / OFF できる**：使わない機能は止めておけば負荷にならない
-- 🛟 **古い環境でも止まらない**：版が合わない時は、ゲームを止めずに機能だけを無効にする
-
----
-
 ## ❱ 導入【Introduction】
 
 1. Fabric Loader を入れた Minecraft 26.3 を用意する
@@ -76,6 +52,30 @@ Author   : argonaute_nemo
 | `M` | ワールドマップ | 素手で右クリック長押し | ズーム |
 | `F5` 長押し | 自由視点 | `F5` | 視点の切り替え |
 | マップで右クリック | ピンを置く | マップで `Ctrl+左クリック` | その場所へ移動（管理者のみ） |
+
+---
+
+## ❱ 特徴【Highlights】
+
+- 📦 **1つの jar で完結**：Fabric API などの前提 Mod は要らない
+- 🎨 **バニラの見た目**：画面・アイコンはバニラの絵をそのまま使う
+- 🔘 **全部 ON / OFF できる**：使わない機能は止めておけば負荷にならない
+- 🛟 **古い環境でも止まらない**：版が合わない時は、ゲームを止めずに機能だけを無効にする
+
+- ---
+
+## ❱ 情報【Information】
+
+Mod の一覧と設定の画面に、ズーム・ワールドマップ・3D スキンなどの機能を1つの Mod にまとめたもの。<br>
+見た目はバニラのまま。機能はすべて設定画面で個別に ON / OFF できる。
+
+```text
+Mod      : NeoMods
+Version  : 26.3
+Loader   : Fabric（Fabric API は不要）
+Requires : Minecraft 26.3 / Java 25
+Author   : argonaute_nemo
+```
 
 ---
 
