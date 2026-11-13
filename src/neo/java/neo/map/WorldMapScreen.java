@@ -15,6 +15,10 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.core.Holder;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.saveddata.maps.MapDecorationType;
+import net.minecraft.world.level.saveddata.maps.MapDecorationTypes;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
@@ -81,10 +85,25 @@ public final class WorldMapScreen extends Screen {
     private Button deleteButton;
     private Button scanButton;
     private boolean fullscreen;
+    /** 全体地図の紙の縁の色と目印の大きさ。 */
+    private static final int FLAT_PAPER = 0xFFD9C9A3;
+    private static final int FLAT_ICON = 10;
+    private static final int OVERVIEW_BACKGROUND = 0xFF15161A;
     private String scanTooltipText = "";
 
+    /** 全体地図か（手は描かず、画面いっぱいに最も広い縮尺で描く）。 */
+    private final boolean overview;
+    /** 全体地図を M を押している間だけ出すか（長押し）。false はスペクテイターの単押しで、もう一度 M か Esc で閉じる。 */
+    private final boolean whileHeld;
+
     WorldMapScreen(MapStore store, MapPins pins, MapMarkers autoMarkers, ResourceKey<Level> dimensionKey) {
+        this(store, pins, autoMarkers, dimensionKey, false, false);
+    }
+
+    WorldMapScreen(MapStore store, MapPins pins, MapMarkers autoMarkers, ResourceKey<Level> dimensionKey, boolean overview, boolean whileHeld) {
         super(Component.translatable("neo.map.title"));
+        this.overview = overview;
+        this.whileHeld = whileHeld;
         this.store = store;
         this.pins = pins;
         this.autoMarkers = autoMarkers;
@@ -96,6 +115,17 @@ public final class WorldMapScreen extends Screen {
 
     @Override
     protected void init() {
+        if (overview) {
+            if (!positioned) {
+                positioned = true;
+                scale = MAX_SCALE;
+                centerOnPlayer();
+                fullscreen = true;
+            }
+
+            return; // ボタン・ピンの欄は出さない (見るだけ。ホイールで縮尺は変えられる)
+        }
+
         if (!positioned) {
             positioned = true;
             scale = 0;
@@ -292,6 +322,42 @@ public final class WorldMapScreen extends Screen {
         }
     }
 
+    // ---- 全体地図 ----
+
+    /** 手を描かずに、地図の画像と目印 (自分の向き・ピン・構造物と旗) を GUI へじかに描く。 */
+    private void drawFlatMap(GuiGraphicsExtractor graphics, HandMapGeometry.Rect rect, HeldMapView.View view) {
+        int x = (int) Math.round(rect.left());
+        int y = (int) Math.round(rect.top());
+        int size = (int) Math.round(rect.size());
+        int border = Math.max(2, size / 40);
+        graphics.fill(x - border, y - border, x + size + border, y + size + border, FLAT_PAPER);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, HeldMapView.TEXTURE_ID, x, y, 0.0F, 0.0F, size, size,
+            HeldMapView.RESOLUTION, HeldMapView.RESOLUTION, HeldMapView.RESOLUTION, HeldMapView.RESOLUTION);
+
+        for (HeldMapView.Marker marker : markers()) {
+            drawFlatDecoration(graphics, rect, marker.type(), toScreenX(rect, view, marker.worldX()), toScreenZ(rect, view, marker.worldZ()), 0.0F);
+        }
+
+        // 自分: バニラの地図と同じく、北が上で向きに合わせて回す
+        drawFlatDecoration(graphics, rect, MapDecorationTypes.PLAYER, toScreenX(rect, view, minecraft.player.getX()),
+            toScreenZ(rect, view, minecraft.player.getZ()), (float) Math.toRadians(minecraft.player.getYRot() + 180.0F));
+    }
+
+    private void drawFlatDecoration(GuiGraphicsExtractor graphics, HandMapGeometry.Rect rect, Holder<MapDecorationType> type,
+                                    double screenX, double screenY, float radians) {
+        if (!rect.contains(screenX, screenY)) {
+            return;
+        }
+
+        Identifier asset = type.value().assetId();
+        Identifier texture = Identifier.fromNamespaceAndPath(asset.getNamespace(), "textures/map/decorations/" + asset.getPath() + ".png");
+        graphics.pose().pushMatrix();
+        graphics.pose().translate((float) screenX, (float) screenY);
+        graphics.pose().rotate(radians);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, texture, -FLAT_ICON / 2, -FLAT_ICON / 2, 0.0F, 0.0F, FLAT_ICON, FLAT_ICON, 8, 8, 8, 8);
+        graphics.pose().popMatrix();
+    }
+
     /** 地図の左右に空いた幅に合わせて、ボタン欄の幅を決める (画面が狭いと細くなる)。 */
     private int panelWidth() {
         HandMapGeometry.Rect rect = HandMapGeometry.of(width, height);
@@ -315,6 +381,9 @@ public final class WorldMapScreen extends Screen {
     /** 背景は描かない: バニラが描く手持ちの地図 (ワールドの描画の一部) をそのまま見せる。 */
     @Override
     public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        if (overview) {
+            graphics.fill(0, 0, width, height, OVERVIEW_BACKGROUND);
+        }
     }
 
     // ---- 描画 ----
@@ -331,6 +400,15 @@ public final class WorldMapScreen extends Screen {
         HeldMapView.show(minecraft, store, dimensionKey, HeldMapView.viewOf(scale, centerX, centerZ), markers(), minecraft.player);
         // 部品の位置・クリック位置は、いま画面に出ている窓を基準にする (書き直しを間引いているので、動かした位置とは少し違う)
         HeldMapView.View view = currentView();
+
+        if (overview) {
+            super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+            drawFlatMap(graphics, rect, view);
+            if (rect.contains(mouseX, mouseY)) {
+                drawMapTooltip(graphics, mouseX, mouseY, Mth.floor(toWorldX(rect, view, mouseX)), Mth.floor(toWorldZ(rect, view, mouseY)));
+            }
+            return;
+        }
 
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         if (selected != null) {
@@ -678,8 +756,23 @@ public final class WorldMapScreen extends Screen {
         return true;
     }
 
+    /** 全体地図は、M を離したら閉じる。 */
+    @Override
+    public boolean keyReleased(KeyEvent event) {
+        if (overview && whileHeld && WorldMapClient.isOpenKey(event)) {
+            onClose();
+            return true;
+        }
+
+        return super.keyReleased(event);
+    }
+
     @Override
     public boolean keyPressed(KeyEvent event) {
+        if (overview && whileHeld && WorldMapClient.isOpenKey(event)) {
+            return true; // 押しっぱなしのキーの繰り返し
+        }
+
         if (super.keyPressed(event)) {
             return true; // Esc で閉じる / 名前欄への入力
         }

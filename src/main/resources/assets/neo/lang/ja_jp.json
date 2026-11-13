@@ -193,7 +193,6 @@
   "neo.map.pin_list": "ピン一覧 (%s)",
   "neo.map.pin_list_more": "… 他 %s 件",
   "neo.map.icon": "アイコン変更",
-  "neo.map.no_spectator": "スペクテイターでは使えません",
   "option.modmenu.sound_browser": "サウンドブラウザ (クリエイティブ)",
   "option.modmenu.sound_browser.true": "オン",
   "option.modmenu.sound_browser.false": "オフ",

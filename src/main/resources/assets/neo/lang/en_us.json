@@ -193,7 +193,6 @@
   "neo.map.pin_list": "Pins (%s)",
   "neo.map.pin_list_more": "... %s more",
   "neo.map.icon": "Change Icon",
-  "neo.map.no_spectator": "Not available in spectator mode",
   "option.modmenu.sound_browser": "Sound Browser (Creative)",
   "option.modmenu.sound_browser.true": "On",
   "option.modmenu.sound_browser.false": "Off",

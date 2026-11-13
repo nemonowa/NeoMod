@@ -61,7 +61,7 @@ public final class HeldMapView {
     /** 1 回の書き直しでディスクから読む地図の枚数の上限 (通常 / 開いた直後)。 */
     private static final int LOAD_BUDGET = 4;
     private static final int LOAD_BUDGET_FIRST = 36;
-    private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath(NeoAssets.NAMESPACE, "map/held");
+    static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath(NeoAssets.NAMESPACE, "map/held");
     private static final MapItemSavedData[] DATA = new MapItemSavedData[MapStore.MAX_SCALE + 1];
     private static final byte[] SCRATCH = new byte[RESOLUTION * RESOLUTION];
     private static final byte[] COMPOSED = new byte[RESOLUTION * RESOLUTION];

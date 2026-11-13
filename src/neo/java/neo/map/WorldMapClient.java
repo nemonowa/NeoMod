@@ -83,6 +83,11 @@ public final class WorldMapClient {
         }, "NeoMod-Map-Shutdown"));
     }
 
+    /** M の長押しとみなす時間 (F5 の自由視点と同じ)。 */
+    private static final long HOLD_MILLIS = neo.freelook.FreeLookState.HOLD_MILLIS;
+    /** M を押した時刻 (単押しか長押しか決まるまで。0 = 押していない)。 */
+    private static long openPressedAt;
+
     static boolean isOpenKey(KeyEvent event) {
         return OPEN_KEY.matches(event);
     }
@@ -110,12 +115,25 @@ public final class WorldMapClient {
             pins.saveIfChanged();
         }
 
+        // 単押し = 手持ちの地図 / HOLD_MILLIS より長く押す = 押している間だけ全体地図
         while (OPEN_KEY.consumeClick()) {
-            if (client.gameMode != null && client.gameMode.getPlayerMode() == GameType.SPECTATOR) {
-                client.player.sendOverlayMessage(Component.translatable("neo.map.no_spectator")); // バニラの手はスペクテイターでは描かれない
-            } else {
-                client.gui.setScreen(new WorldMapScreen(store, pins, markers, client.level.dimension()));
+            if (openPressedAt == 0L) {
+                openPressedAt = System.currentTimeMillis();
             }
+        }
+
+        if (openPressedAt != 0L && client.gui.screen() == null) {
+            // スペクテイターはバニラの手が描かれないので、単押しでも全体地図 (もう一度 M か Esc で閉じる)
+            boolean spectator = client.gameMode != null && client.gameMode.getPlayerMode() == GameType.SPECTATOR;
+            if (!OPEN_KEY.isDown()) {
+                openPressedAt = 0L;
+                client.gui.setScreen(new WorldMapScreen(store, pins, markers, client.level.dimension(), spectator, false));
+            } else if (System.currentTimeMillis() - openPressedAt > HOLD_MILLIS) {
+                openPressedAt = 0L;
+                client.gui.setScreen(new WorldMapScreen(store, pins, markers, client.level.dimension(), true, true));
+            }
+        } else if (client.gui.screen() != null) {
+            openPressedAt = 0L;
         }
     }
 
