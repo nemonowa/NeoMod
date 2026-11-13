@@ -1,6 +1,7 @@
 package neo.map;
 
 import com.mojang.logging.LogUtils;
+import neo.map.ScanJob.Target;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
@@ -58,8 +59,6 @@ final class MapUpdater {
 
     /** 外側の更新の地点 (ブロック座標)。 */
     private record Point(int x, int z) {}
-
-    record Target(int scale, int cellX, int cellZ, double distanceSqr) {}
 
     /** 色がまだ付いていない地図 (登録前)。 */
     private final Map<String, MapItemSavedData> pending = new HashMap<>();
@@ -123,7 +122,7 @@ final class MapUpdater {
         ResourceKey<Level> dimension = level.dimension();
         // バニラと同じ更新半径 (MapItem#update の radius をブロックに直したもの)
         int radius = level.dimensionType().hasCeiling() ? 64 : 128;
-        List<Target> targets = targetsInRange(player.getX(), player.getZ(), radius);
+        List<Target> targets = ScanJob.targetsInRange(player.getX(), player.getZ(), radius);
         if (!targets.isEmpty()) {
             int updates = Math.min(UPDATES_PER_TICK, targets.size());
             for (int i = 0; i < updates; i++) {
@@ -204,7 +203,7 @@ final class MapUpdater {
             List<Point> ring = rings.get(ringIndex);
             if (pointIndex < ring.size()) {
                 Point point = ring.get(pointIndex);
-                List<Target> targets = targetsInRange(point.x(), point.z(), radius);
+                List<Target> targets = ScanJob.targetsInRange(point.x(), point.z(), radius);
                 targets.removeIf(target -> passCount % SCALE_INTERVAL[target.scale()] != 0);
                 if (!targets.isEmpty()) {
                     pointTargets = targets;
@@ -239,7 +238,7 @@ final class MapUpdater {
      * 0 は内側の更新が受け持つ)。格子は世界に固定 (プレイヤーが動いても同じ地点)。ロード済みのチャンクが近くに無い地点は入れない。
      */
     private static List<List<Point>> buildRings(ClientLevel level, double playerX, double playerZ, int radius) {
-        int spacing = WideMapScan.spacingOf(radius);
+        int spacing = ScanJob.spacingOf(radius);
         int ringCount = MAX_OUTER_RANGE / spacing;
         List<List<Point>> rings = new ArrayList<>();
         for (int i = 0; i < ringCount; i++) {
@@ -296,7 +295,7 @@ final class MapUpdater {
                 pending.clear();
             }
 
-            data = pending.computeIfAbsent(key, k -> freshData(dimension, target.scale(), target.cellX(), target.cellZ()));
+            data = pending.computeIfAbsent(key, k -> ScanJob.freshData(dimension, target.scale(), target.cellX(), target.cellZ()));
         }
 
         MapItem mapItem = (MapItem) Items.FILLED_MAP;
@@ -310,39 +309,6 @@ final class MapUpdater {
             store.adopt(dimension, target.cellX(), target.cellZ(), data);
             pending.remove(key);
         }
-    }
-
-    /** 色がまだ付いていない新しい升目の地図 (バニラの作成手順 MapItemSavedData#createFresh)。 */
-    static MapItemSavedData freshData(ResourceKey<Level> dimension, int scale, int cellX, int cellZ) {
-        int size = MapStore.blockSize(scale);
-        return MapItemSavedData.createFresh(cellX * (double) size, cellZ * (double) size, (byte) scale, false, false, dimension);
-    }
-
-    /** 全スケールで、更新半径の円に掛かる升目を、近い順 (同じ距離なら細かいスケールが先) に返す。 */
-    static List<Target> targetsInRange(double playerX, double playerZ, int radius) {
-        List<Target> targets = new ArrayList<>();
-        for (int scale = 0; scale <= MapStore.MAX_SCALE; scale++) {
-            int size = MapStore.blockSize(scale);
-            int minCellX = MapStore.cellOf((int) Math.floor(playerX - radius), scale);
-            int maxCellX = MapStore.cellOf((int) Math.floor(playerX + radius), scale);
-            int minCellZ = MapStore.cellOf((int) Math.floor(playerZ - radius), scale);
-            int maxCellZ = MapStore.cellOf((int) Math.floor(playerZ + radius), scale);
-            for (int cellX = minCellX; cellX <= maxCellX; cellX++) {
-                for (int cellZ = minCellZ; cellZ <= maxCellZ; cellZ++) {
-                    double left = MapStore.centerOf(cellX, scale) - size / 2.0;
-                    double top = MapStore.centerOf(cellZ, scale) - size / 2.0;
-                    double dx = Math.max(Math.max(left - playerX, playerX - (left + size)), 0.0);
-                    double dz = Math.max(Math.max(top - playerZ, playerZ - (top + size)), 0.0);
-                    double distance = dx * dx + dz * dz;
-                    if (distance < (double) radius * radius) {
-                        targets.add(new Target(scale, cellX, cellZ, distance));
-                    }
-                }
-            }
-        }
-
-        targets.sort(Comparator.comparingDouble(Target::distanceSqr).thenComparingInt(Target::scale));
-        return targets;
     }
 
     private static boolean isBlank(MapItemSavedData data) {

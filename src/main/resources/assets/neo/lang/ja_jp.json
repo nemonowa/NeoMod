@@ -188,6 +188,7 @@
   "neo.map.scan.done": "広域スキャンが完了しました (%sブロック四方)",
   "neo.map.scan.stopped": "スキャンを停止しました (%s / %s 地点)",
   "neo.map.scan.failed": "広域スキャンに失敗しました (ログを確認)",
+  "neo.map.scan.busy": "このサーバーでは、ほかの人が広域スキャンを実行中です",
   "neo.map.dimension": "ディメンション: %s",
   "neo.map.pin_list": "ピン一覧 (%s)",
   "neo.map.pin_list_more": "… 他 %s 件",

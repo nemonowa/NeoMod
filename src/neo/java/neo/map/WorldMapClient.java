@@ -198,6 +198,22 @@ public final class WorldMapClient {
         UPDATER.reset();
     }
 
+    public static void onWideScanStatus(WideScanStatusPayload payload) {
+        WideMapScan.onStatus(payload);
+    }
+
+    public static void onWideScanCell(WideScanCellPayload payload) {
+        WideMapScan.onCell(payload);
+    }
+
+    /** マルチ: サーバーが見つけた構造物 (クライアントのスレッドで呼ばれる)。マップが閉じている・OFF のときは捨てる。 */
+    public static void onStructureMarkers(StructureMarkersPayload payload) {
+        MapMarkers currentMarkers = markers;
+        if (currentMarkers != null) {
+            currentMarkers.onServerStructures(payload);
+        }
+    }
+
     private static String worldKey(Minecraft client) {
         IntegratedServer server = client.getSingleplayerServer();
         if (server != null) {

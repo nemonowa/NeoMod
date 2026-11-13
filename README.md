@@ -10,7 +10,7 @@
 *Modification of NeoWorld.*
 
 ![Minecraft](https://img.shields.io/badge/Minecraft-26.3-62b47a)
-![Loader](https://img.shields.io/badge/loader-Fabric-dbd0b4)
+![Loader](https://img.shields.io/badge/loader-Fabric%20%2F%20Forge-dbd0b4)
 ![Java](https://img.shields.io/badge/Java-25-b07219)
 
 </div>
@@ -19,7 +19,7 @@
 
 ## ❱ 導入【Introduction】
 
-1. Fabric Loader を入れた Minecraft 26.3 を用意する
+1. Fabric Loader（または Forge）を入れた Minecraft 26.3 を用意する（Forge は Mod の一覧画面だけ）
 2. `neomod.jar` を `.minecraft/mods/` に置く
 3. 起動して、タイトル画面の「Mods」から設定を開く
 
@@ -72,7 +72,7 @@ Mod の一覧と設定の画面に、ズーム・ワールドマップ・3D ス�
 ```text
 Mod      : NeoMods
 Version  : 26.3
-Loader   : Fabric（Fabric API は不要）
+Loader   : Fabric / Forge（Forge は Mod の一覧画面だけ。Fabric API は不要）
 Requires : Minecraft 26.3 / Java 25
 Author   : argonaute_nemo
 ```

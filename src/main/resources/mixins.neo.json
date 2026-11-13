@@ -10,7 +10,10 @@
     "MixinClientboundCustomPayloadPacket",
     "MixinEntityLegacyRide",
     "MixinLivingEntityLegacyRide",
-    "MixinMinecraftServer"
+    "MixinMinecraftServer",
+    "MixinPlayerListJoin",
+    "MixinServerboundCustomPayloadPacket",
+    "MixinServerGamePacketListenerImpl"
   ],
   "client": [
     "MixinAbstractContainerScreenSwitch",

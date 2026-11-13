@@ -1,5 +1,8 @@
 package neo.mount;
 
+import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Enderman;
@@ -16,8 +19,10 @@ import net.minecraft.world.phys.Vec3;
  * 26.3 は「乗り物の乗せ位置 − 乗る側の VEHICLE アタッチメント」で決まるので、両方をこの式に置き換える。
  * 乗り物はゾンビ系・スケルトン系・ウィッチ・エンダーマンだけ (ほかの乗り物はバニラのまま)。
  *
- * サーバー側の当たり判定とずれないよう、効くのは自分がサーバーのとき (シングルプレイ・LAN のホスト) だけ。
- * クライアントの tick が {@link #enabled} を更新し、同じ JVM の内蔵サーバーもこの値を見る。専用サーバーでは常に false。
+ * 位置はサーバーとクライアントがそれぞれ計算するので、両方で値をそろえる。シングルプレイ・LAN のホストは
+ * クライアントの設定を {@link #enabled} へ写し (同じ JVM の内蔵サーバーもこの値を見る)、専用サーバーは常に ON。
+ * サーバーは参加時と値が変わった時に {@link LegacyRidePayload} を送り、MOD 入りのクライアントはそれに従う。
+ * MOD の無いクライアントはバニラの高さで描く。
  * このクラスはサーバー側からも呼ばれるので、クライアント専用のクラスを参照しない (P-63)。
  */
 public final class LegacyRide {
@@ -27,8 +32,26 @@ public final class LegacyRide {
     private static final double RIDER_OFFSET = 0.35;
 
     public static volatile boolean enabled;
+    /** 最後にクライアントへ送った値 (サーバースレッドだけが触る)。 */
+    private static boolean lastSent;
 
     private LegacyRide() {}
+
+    public static void onServerTick(MinecraftServer server) {
+        if (server.isDedicatedServer()) {
+            enabled = true;
+        }
+
+        boolean value = enabled;
+        if (value != lastSent) {
+            lastSent = value;
+            server.getPlayerList().broadcastAll(new ClientboundCustomPayloadPacket(new LegacyRidePayload(value)));
+        }
+    }
+
+    public static void sendTo(ServerPlayer player) {
+        player.connection.send(new ClientboundCustomPayloadPacket(new LegacyRidePayload(enabled)));
+    }
 
     /** 乗り物として高さを合わせる型か。 */
     static boolean isLegacyVehicle(Entity e) {

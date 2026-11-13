@@ -2,6 +2,12 @@ package neo.mixin;
 
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import neo.map.StructureMarkersPayload;
+import neo.map.WideScanCellPayload;
+import neo.map.WideScanStatusPayload;
+import neo.map.WorldMapClient;
+import neo.mount.LegacyRideClient;
+import neo.mount.LegacyRidePayload;
 import neo.spawnerinfo.SpawnerDataPayload;
 import neo.spawnerinfo.SpawnerInfoClient;
 import org.spongepowered.asm.mixin.Mixin;
@@ -16,6 +22,18 @@ public abstract class MixinClientPacketListener {
     private void neo$handlePayload(CustomPacketPayload payload, CallbackInfo ci) {
         if (payload instanceof SpawnerDataPayload data) {
             SpawnerInfoClient.onPayload(data);
+            ci.cancel();
+        } else if (payload instanceof LegacyRidePayload ride) {
+            LegacyRideClient.onPayload(ride);
+            ci.cancel();
+        } else if (payload instanceof StructureMarkersPayload structures) {
+            WorldMapClient.onStructureMarkers(structures);
+            ci.cancel();
+        } else if (payload instanceof WideScanStatusPayload status) {
+            WorldMapClient.onWideScanStatus(status);
+            ci.cancel();
+        } else if (payload instanceof WideScanCellPayload cell) {
+            WorldMapClient.onWideScanCell(cell);
             ci.cancel();
         }
     }

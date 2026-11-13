@@ -5,6 +5,10 @@ import java.util.List;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import neo.map.StructureMarkersPayload;
+import neo.map.WideScanCellPayload;
+import neo.map.WideScanStatusPayload;
+import neo.mount.LegacyRidePayload;
 import neo.spawnerinfo.SpawnerDataPayload;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -31,6 +35,10 @@ public abstract class MixinClientboundCustomPayloadPacket {
     ) {
         List<CustomPacketPayload.TypeAndCodec<? super FriendlyByteBuf, ?>> list = new ArrayList<>(original);
         list.add(new CustomPacketPayload.TypeAndCodec<FriendlyByteBuf, SpawnerDataPayload>(SpawnerDataPayload.TYPE, SpawnerDataPayload.CODEC));
+        list.add(new CustomPacketPayload.TypeAndCodec<FriendlyByteBuf, LegacyRidePayload>(LegacyRidePayload.TYPE, LegacyRidePayload.CODEC));
+        list.add(new CustomPacketPayload.TypeAndCodec<FriendlyByteBuf, StructureMarkersPayload>(StructureMarkersPayload.TYPE, StructureMarkersPayload.CODEC));
+        list.add(new CustomPacketPayload.TypeAndCodec<FriendlyByteBuf, WideScanStatusPayload>(WideScanStatusPayload.TYPE, WideScanStatusPayload.CODEC));
+        list.add(new CustomPacketPayload.TypeAndCodec<FriendlyByteBuf, WideScanCellPayload>(WideScanCellPayload.TYPE, WideScanCellPayload.CODEC));
         return list;
     }
 }

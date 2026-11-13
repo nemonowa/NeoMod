@@ -2,6 +2,9 @@ package neo.mixin;
 
 import java.util.function.BooleanSupplier;
 import net.minecraft.server.MinecraftServer;
+import neo.map.StructureDiscovery;
+import neo.map.WideMapScanServer;
+import neo.mount.LegacyRide;
 import neo.spawnerinfo.SpawnerInfoMod;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -14,5 +17,8 @@ public abstract class MixinMinecraftServer {
     @Inject(method = "tickServer", at = @At("RETURN"), require = 1)
     private void neo$endServerTick(BooleanSupplier hasTimeLeft, CallbackInfo ci) {
         SpawnerInfoMod.onServerTick((MinecraftServer) (Object) this);
+        LegacyRide.onServerTick((MinecraftServer) (Object) this);
+        StructureDiscovery.onServerTick((MinecraftServer) (Object) this);
+        WideMapScanServer.onServerTick((MinecraftServer) (Object) this);
     }
 }

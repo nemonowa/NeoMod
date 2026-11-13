@@ -39,19 +39,15 @@ import java.util.Set;
  * 地図に自動で出す目印: 発見した構造物 (シングルのみ) と、見つけた旗 (バナー)。見つけた位置は記憶して保存する
  * (保存の共通規約: dataFolder/neo/map/markers.dat、NeoData)。見た目はバニラの地図の装飾 (アイコン) で、描画はバニラが行う。
  *
- * 構造物: 配置データはサーバー側にしか無い (マルチのクライアントには送られない) ので、統合サーバー (シングル) のときだけ。
- *   プレイヤーが構造物の範囲に DISCOVER_DISTANCE ブロックまで近づいたものを「発見済み」にする (まだ遠くのものは出ない = ネタバレしない)。
- *   サーバーのデータはサーバーのスレッドで読む (MinecraftServer#execute)。
+ * 構造物: 配置データはサーバー側にしか無い。シングル・LAN のホストは内蔵サーバーをサーバーのスレッドで読み (MinecraftServer#execute)、
+ *   それ以外は MOD を入れたサーバーが送る {@link StructureMarkersPayload} を受け取る (MOD の無いサーバーでは出ない)。
+ *   プレイヤーが構造物の範囲に近づいたものだけを「発見済み」にする (まだ遠くのものは出ない = ネタバレしない。StructureDiscovery)。
  * 旗: ロード済みのチャンクにある旗 (BannerBlockEntity) を、クライアント側で見つけて記憶する。チャンクが読み込まれていて旗が無くなっていれば、
  *   バニラの MapItemSavedData#checkBanners と同じく目印を消す。
  * 設定 map_auto_markers が OFF のときは、走査も保存もせず、tick では設定を引いて戻るだけ。
  */
 final class MapMarkers {
     private static final String DATA_PATH = "map/markers";
-    /** 構造物の範囲 (水平) にこの距離まで近づいたら発見済み (ブロック)。 */
-    private static final int DISCOVER_DISTANCE = 96;
-    private static final int DISCOVER_CHUNK_RADIUS = DISCOVER_DISTANCE / 16 + 2;
-    private static final int STRUCTURE_SCAN_INTERVAL_TICKS = 40;
     /** 旗の走査: 半径 (チャンク)、1 tick に調べる数、取り直しの間隔 (近い / 遠い)。 */
     private static final int BANNER_RADIUS_CHUNKS = 8;
     private static final int BANNER_CHUNKS_PER_TICK = 2;
@@ -119,7 +115,7 @@ final class MapMarkers {
         }
 
         scanBanners(client, level, dimension);
-        if (ticks % STRUCTURE_SCAN_INTERVAL_TICKS == 0) {
+        if (ticks % StructureDiscovery.SCAN_INTERVAL_TICKS == 0) {
             requestStructureScan(client, level.dimension());
         }
     }
@@ -209,60 +205,29 @@ final class MapMarkers {
         double playerZ = client.player.getZ();
         String dimensionId = dimension.identifier().toString();
         server.execute(() -> {
-            List<Structure> found = new ArrayList<>();
-            try {
-                scanStructures(server, dimension, dimensionId, playerX, playerZ, found);
-            } finally {
-                client.execute(() -> {
-                    structureScanRunning = false;
-                    for (Structure structure : found) {
-                        if (structures.putIfAbsent(structure.key(), structure) == null) {
-                            changed();
-                        }
-                    }
-                });
-            }
+            ServerLevel level = server.getLevel(dimension);
+            List<StructureMarkersPayload.Entry> found = level == null ? List.of() : StructureDiscovery.scan(level, playerX, playerZ);
+            client.execute(() -> {
+                structureScanRunning = false;
+                addStructures(dimensionId, found);
+            });
         });
     }
 
-    /** サーバーのスレッドで実行: プレイヤーの周りのロード済みチャンクにある構造物のうち、範囲に近づいたものを集める。 */
-    private static void scanStructures(MinecraftServer server, ResourceKey<Level> dimension, String dimensionId,
-                                       double playerX, double playerZ, List<Structure> out) {
-        ServerLevel level = server.getLevel(dimension);
-        if (level == null) {
-            return;
-        }
-
-        int playerChunkX = (int) Math.floor(playerX) >> 4;
-        int playerChunkZ = (int) Math.floor(playerZ) >> 4;
-        var registry = level.registryAccess().lookupOrThrow(Registries.STRUCTURE);
-        for (int dx = -DISCOVER_CHUNK_RADIUS; dx <= DISCOVER_CHUNK_RADIUS; dx++) {
-            for (int dz = -DISCOVER_CHUNK_RADIUS; dz <= DISCOVER_CHUNK_RADIUS; dz++) {
-                LevelChunk chunk = level.getChunkSource().getChunkNow(playerChunkX + dx, playerChunkZ + dz);
-                if (chunk == null) {
-                    continue;
-                }
-
-                for (Map.Entry<net.minecraft.world.level.levelgen.structure.Structure, StructureStart> entry : chunk.getAllStarts().entrySet()) {
-                    StructureStart start = entry.getValue();
-                    Identifier id = registry.getKey(entry.getKey());
-                    String iconKey = id == null ? null : StructureIcons.iconKeyOf(id.getPath());
-                    if (iconKey == null || !start.isValid() || distanceTo(start.getBoundingBox(), playerX, playerZ) > DISCOVER_DISTANCE) {
-                        continue;
-                    }
-
-                    ChunkPos chunkPos = start.getChunkPos();
-                    out.add(new Structure(dimensionId, iconKey, chunkPos.getMiddleBlockX(), chunkPos.getMiddleBlockZ()));
-                }
-            }
+    /** マルチ: サーバーが送ってきた構造物を足す (クライアントのスレッド)。 */
+    void onServerStructures(StructureMarkersPayload payload) {
+        if (ModManagerConfig.MAP_AUTO_MARKERS.getValue()) {
+            addStructures(payload.dimension(), payload.entries());
         }
     }
 
-    /** 構造物の範囲 (水平) までの距離。範囲の中なら 0。 */
-    private static double distanceTo(BoundingBox box, double x, double z) {
-        double dx = Math.max(Math.max(box.minX() - x, x - box.maxX()), 0.0);
-        double dz = Math.max(Math.max(box.minZ() - z, z - box.maxZ()), 0.0);
-        return Math.sqrt(dx * dx + dz * dz);
+    private void addStructures(String dimensionId, List<StructureMarkersPayload.Entry> found) {
+        for (StructureMarkersPayload.Entry entry : found) {
+            Structure structure = new Structure(dimensionId, entry.iconKey(), entry.x(), entry.z());
+            if (structures.putIfAbsent(structure.key(), structure) == null) {
+                changed();
+            }
+        }
     }
 
     // ---- 画面に渡す ----

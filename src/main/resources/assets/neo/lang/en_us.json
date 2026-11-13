@@ -188,6 +188,7 @@
   "neo.map.scan.done": "Wide scan finished (%s blocks square)",
   "neo.map.scan.stopped": "Scan stopped (%s / %s points)",
   "neo.map.scan.failed": "Wide scan failed (see the log)",
+  "neo.map.scan.busy": "Someone else is running a wide scan on this server",
   "neo.map.dimension": "Dimension: %s",
   "neo.map.pin_list": "Pins (%s)",
   "neo.map.pin_list_more": "... %s more",
