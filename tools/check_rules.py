@@ -39,6 +39,7 @@ EXPECTED_DEFAULTS = {
     "large_advancements": True, "zoom": True, "inventory_move": True, "screen_switch": True, "skin_layers": True, "world_map": True, "map_auto_markers": True, "skip_command_confirmation": True,
     "sound_browser": True,
     "afk_cinematic": True,
+    "legacy_ride_position": True,
 }
 # P-26: NeoData / バニラの保管以外でファイルを書いてよいクラス
 # ModsScreen: ユーザーがドロップした Mod の jar を mods フォルダへコピーする機能 (データの保存ではない)

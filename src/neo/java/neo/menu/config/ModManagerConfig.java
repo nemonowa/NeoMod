@@ -53,6 +53,9 @@ public class ModManagerConfig {
     /** AFK シネマティックが始まるまでの放置時間。**10 秒単位**のスライダー (1〜60 = 10 秒〜10 分。既定 18 = 3 分)。options.txt の neo_afk_cinematic_idle 行の値も、この単位の整数。 */
     public static final IntConfigOption AFK_CINEMATIC_IDLE = new IntConfigOption("afk_cinematic_idle", 18, 1, 60, ModManagerConfig::afkIdleText);
 
+    /** 旧版の騎乗位置: ゾンビ・スケルトン・ウィッチ・エンダーマンに乗ったときの高さを 1.10.2 に合わせる。自分がサーバーのとき (シングル・LAN のホスト) だけ効く (neo.mount)。 */
+    public static final BooleanConfigOption LEGACY_RIDE_POSITION = new BooleanConfigOption("legacy_ride_position", true);
+
     @FileOnlyConfig
     public static final BooleanConfigOption MODIFY_TITLE_SCREEN = new BooleanConfigOption("modify_title_screen", true);
     @FileOnlyConfig

@@ -8,6 +8,8 @@
   },
   "mixins": [
     "MixinClientboundCustomPayloadPacket",
+    "MixinEntityLegacyRide",
+    "MixinLivingEntityLegacyRide",
     "MixinMinecraftServer"
   ],
   "client": [

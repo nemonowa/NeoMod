@@ -4,6 +4,7 @@ import neo.sound.SoundBrowser;
 import neo.cinematic.AfkCinematic;
 import neo.freelook.FreeLookState;
 import neo.map.WorldMapClient;
+import neo.mount.LegacyRideClient;
 import neo.spawnerinfo.SpawnerInfoClient;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -32,6 +33,7 @@ public final class NeoCore {
         FreeLookState.init();
         SoundBrowser.init();
         AfkCinematic.init();
+        LegacyRideClient.init();
     }
 
     public static void init(String loaderName) {
