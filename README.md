@@ -6,7 +6,7 @@
 
 **説明：** 艦長が自分用にまとめた Minecraft の Mod。<br>Mod の管理画面と、遊びやすくする小さな機能をひとつにまとめた。
 
-*One jar. Vanilla look. Only what you need.*
+*Modification of NeoWorld.*
 
 ![Minecraft](https://img.shields.io/badge/Minecraft-26.3-62b47a)
 ![Loader](https://img.shields.io/badge/loader-Fabric-dbd0b4)
