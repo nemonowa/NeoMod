@@ -4,7 +4,7 @@
 
 # ⛏️｜NeoMods - Minecraft Mod
 
-**説明：** 艦長が自分用にまとめた Minecraft の Mod。<br>Mod の管理画面と、遊びやすくする小さな機能をひとつにまとめた。
+**説明：** Minecraftで理想の世界を創造するためのモッドパック。新たな世界の法則を記述し、君を縛る常識から容易に解放する。ようこそ新世界へ！
 
 *Modification of NeoWorld.*
 
