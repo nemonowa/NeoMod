@@ -7,7 +7,6 @@ import java.util.Arrays;
 import java.util.Locale;
 
 import net.minecraft.client.OptionInstance;
-import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 
 public class EnumConfigOption<E extends Enum<E>> implements OptionConvertible {
@@ -33,14 +32,6 @@ public class EnumConfigOption<E extends Enum<E>> implements OptionConvertible {
 
     public void setValue(E value) {
         ConfigOptionStorage.setEnum(key, value);
-    }
-
-    public void cycleValue() {
-        ConfigOptionStorage.cycleEnum(key, enumClass);
-    }
-
-    public void cycleValue(int amount) {
-        ConfigOptionStorage.cycleEnum(key, enumClass, amount);
     }
 
     /** options.txt に書く値 (小文字の名前)。 */
@@ -73,10 +64,6 @@ public class EnumConfigOption<E extends Enum<E>> implements OptionConvertible {
 
     private static <E extends Enum<E>> Component getValueText(EnumConfigOption<E> option, E value) {
         return Component.translatable(option.translationKey + "." + value.name().toLowerCase(Locale.ROOT));
-    }
-
-    public Component getButtonText() {
-        return CommonComponents.optionNameValue(Component.translatable(translationKey), getValueText(this, getValue()));
     }
 
     @Override

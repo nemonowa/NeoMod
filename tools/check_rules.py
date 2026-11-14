@@ -40,10 +40,12 @@ EXPECTED_DEFAULTS = {
     "sound_browser": True,
     "afk_cinematic": True,
     "legacy_ride_position": True,
+    "random_entity_textures": True,
 }
 # P-26: NeoData / バニラの保管以外でファイルを書いてよいクラス
 # ModsScreen: ユーザーがドロップした Mod の jar を mods フォルダへコピーする機能 (データの保存ではない)
-WRITE_ALLOWED = ("neo.data.NeoData", "neo.fabric.NeoCore", "neo.menu.config.ModManagerConfigManager", "neo.menu.gui.ModsScreen")
+# WorldInstaller: 配布ワールドの画面で「取得」を押した時に、取得したワールドを saves/ へ入れる (データの保存ではない)
+WRITE_ALLOWED = ("neo.data.NeoData", "neo.fabric.NeoCore", "neo.menu.config.ModManagerConfigManager", "neo.menu.gui.ModsScreen", "neo.bundle.WorldInstaller")
 WRITE_PATTERNS = ("Files.write", "Files.writeString", "Files.newOutputStream", "NbtIo.write", "new FileWriter", "new FileOutputStream",
                   "Files.createFile", "Files.copy(", "Files.delete", "Files.move(")
 

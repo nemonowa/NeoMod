@@ -31,13 +31,14 @@ public abstract class MixinTitleScreen {
 
     @ModifyArg(at = @At(value = "INVOKE", target = "Lcom/mojang/realmsclient/gui/screens/RealmsNotificationsScreen;init(II)V"), method = "init", index = 1)
     private int adjustRealmsHeight(int height) {
-        if (ModManagerConfig.MODIFY_TITLE_SCREEN.getValue() && ModManagerConfig.MODS_BUTTON_STYLE.getValue() == ModManagerConfig.TitleMenuButtonStyle.CLASSIC) {
-            return height - 51;
-        } else if (ModManagerConfig.MODS_BUTTON_STYLE.getValue() == ModManagerConfig.TitleMenuButtonStyle.REPLACE_REALMS || ModManagerConfig.MODS_BUTTON_STYLE.getValue() == ModManagerConfig.TitleMenuButtonStyle.SHRINK) {
-            return -99999;
-        } else {
-            return height;
+        if (!ModManagerConfig.MODIFY_TITLE_SCREEN.getValue()) {
+            return height; // タイトル画面を変えない設定のときはバニラのまま
         }
+        return switch (ModManagerConfig.MODS_BUTTON_STYLE.getValue()) {
+            case CLASSIC -> height - 51;
+            case REPLACE_REALMS, SHRINK -> -99999;
+            default -> height;
+        };
     }
 
     @Definition(id = "numberOfButtons", local = @Local(type = int.class, name = "numberOfButtons"))

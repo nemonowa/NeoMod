@@ -29,6 +29,10 @@ public class ModListEntry extends ObjectSelectionList.Entry<ModListEntry> {
     protected final Minecraft client;
     public final Mod mod;
     protected final ModListWidget list;
+    private Component cachedName;
+    private String cachedSummary;
+    private net.minecraft.util.FormattedCharSequence trimmedName;
+    private int trimmedNameWidth = -1;
     protected @Nullable Identifier iconLocation;
     protected static final int FULL_ICON_SIZE = 32;
     /** 行のアイコンに重ねる画像 (設定・親 Mod の開閉) の 1 セルの大きさ (px)。FULL_ICON_SIZE の枠に引き伸ばして描く。 */
@@ -79,17 +83,26 @@ public class ModListEntry extends ObjectSelectionList.Entry<ModListEntry> {
                 ARGB.white(1.0F)
         );
 
-        Component name = Component.literal(ModTexts.name(mod));
-        FormattedText trimmedName = name;
+        // 名前・説明の文は行を作った時に 1 回だけ作り、幅が変わった時だけ切り詰め直す (毎フレーム作らない)
+        if (this.cachedName == null) {
+            this.cachedName = Component.literal(ModTexts.name(mod));
+            this.cachedSummary = ModTexts.summary(mod);
+        }
+        Component name = this.cachedName;
         int maxNameWidth = rowWidth - iconSize - 3;
         Font font = this.client.font;
-        if (font.width(name) > maxNameWidth) {
-            FormattedText ellipsis = FormattedText.of("...");
-            trimmedName = FormattedText.composite(font.substrByWidth(name, maxNameWidth - font.width(ellipsis)), ellipsis);
+        if (this.trimmedNameWidth != maxNameWidth) {
+            FormattedText trimmed = name;
+            if (font.width(name) > maxNameWidth) {
+                FormattedText ellipsis = FormattedText.of("...");
+                trimmed = FormattedText.composite(font.substrByWidth(name, maxNameWidth - font.width(ellipsis)), ellipsis);
+            }
+            this.trimmedName = Language.getInstance().getVisualOrder(trimmed);
+            this.trimmedNameWidth = maxNameWidth;
         }
 
         graphics.text(font,
-                Language.getInstance().getVisualOrder(trimmedName),
+                this.trimmedName,
                 x + iconSize + 3,
                 y + 1,
                 0xFFFFFFFF
@@ -102,10 +115,9 @@ public class ModListEntry extends ObjectSelectionList.Entry<ModListEntry> {
                 mod
         ).draw(graphics, mouseX, mouseY);
 
-        String summary = ModTexts.summary(mod);
         DrawingUtil.drawWrappedString(
                 graphics,
-                summary,
+                this.cachedSummary,
                 (x + iconSize + 3 + 4),
                 (y + client.font.lineHeight + 2),
                 rowWidth - iconSize - 7,

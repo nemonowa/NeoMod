@@ -2,12 +2,12 @@ package neo.menu.config;
 
 import neo.menu.util.TranslationUtil;
 import net.minecraft.client.OptionInstance;
-import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 
 public class BooleanConfigOption implements OptionConvertible {
     private final String key, translationKey;
     private final boolean defaultValue;
+    private final java.util.List<Runnable> listeners = new java.util.concurrent.CopyOnWriteArrayList<>();
     private final Component enabledText;
     private final Component disabledText;
 
@@ -29,7 +29,16 @@ public class BooleanConfigOption implements OptionConvertible {
     }
 
     public void setValue(boolean value) {
+        boolean changed = getValue() != value;
         ConfigOptionStorage.setBoolean(key, value);
+        if (changed) {
+            for (Runnable listener : listeners) listener.run();
+        }
+    }
+
+    /** 設定画面などで値が変わった時に呼ぶ処理を足す (毎 tick 設定を見張らずに、変わった時だけ反映するため。P-45)。 */
+    public void onChange(Runnable listener) {
+        listeners.add(listener);
     }
 
     public boolean getDefaultValue() {
@@ -45,10 +54,6 @@ public class BooleanConfigOption implements OptionConvertible {
         setValue(defaultValue);
     }
 
-    public Component getButtonText() {
-        return CommonComponents.optionNameValue(Component.translatable(translationKey), getValue() ? enabledText : disabledText);
-    }
-
     @Override
     public OptionInstance<Boolean> asOption() {
         return new OptionInstance<>(
@@ -57,7 +62,7 @@ public class BooleanConfigOption implements OptionConvertible {
                 (text, value) -> value ? enabledText : disabledText,
                 OptionInstance.BOOLEAN_VALUES,
                 getValue(),
-                newValue -> ConfigOptionStorage.setBoolean(key, newValue)
+                this::setValue
         );
     }
 }

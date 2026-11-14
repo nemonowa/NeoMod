@@ -8,7 +8,6 @@ import net.minecraft.server.packs.PackMetadataResources;
 import net.minecraft.server.packs.repository.Pack;
 import net.minecraft.server.packs.resources.IoSupplier;
 import org.jetbrains.annotations.Nullable;
-import org.apache.commons.lang3.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,7 +37,10 @@ public class IconHandler implements Closeable {
 
             try (InputStream inputStream = Files.newInputStream(path)) {
                 NativeImage image = NativeImage.read(Objects.requireNonNull(inputStream));
-                Validate.validState(image.getHeight() == image.getWidth(), "Must be square icon");
+                if (image.getHeight() != image.getWidth()) {
+                    image.close(); // 使わない画像のネイティブメモリを返す
+                    throw new IllegalStateException("Must be square icon");
+                }
                 DynamicTexture tex = new DynamicTexture(() -> Identifier.fromNamespaceAndPath(NeoAssets.NAMESPACE, iconPath).toString(), image);
                 cacheModIcon(path, tex);
 

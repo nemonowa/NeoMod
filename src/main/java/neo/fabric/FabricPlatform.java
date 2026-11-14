@@ -21,11 +21,6 @@ import java.util.jar.JarFile;
 /** {@link ModManagerPlatform} の Fabric Loader 実装。 */
 final class FabricPlatform extends ModManagerPlatform {
     @Override
-    public Path configDir() {
-        return FabricLoader.getInstance().getConfigDir();
-    }
-
-    @Override
     public Path modsDir() {
         return FabricLoader.getInstance().getGameDir().resolve("mods");
     }

@@ -1,6 +1,7 @@
 package neo.fabric;
 
 import neo.sound.SoundBrowser;
+import neo.bundle.PresetWorldScreen;
 import neo.cinematic.AfkCinematic;
 import neo.freelook.FreeLookState;
 import neo.map.WorldMapClient;
@@ -32,6 +33,7 @@ public final class NeoCore {
         WorldMapClient.init();
         FreeLookState.init();
         SoundBrowser.init();
+        PresetWorldScreen.register();
         AfkCinematic.init();
         LegacyRideClient.init();
     }

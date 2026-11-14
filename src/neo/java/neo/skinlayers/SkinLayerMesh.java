@@ -56,10 +56,6 @@ public final class SkinLayerMesh {
         return quadCount == 0;
     }
 
-    public int quadCount() {
-        return quadCount;
-    }
-
     /**
      * メッシュを描く。{@code pose} はパーツの平行移動・回転を済ませたもの (ModelPart#render の Cube#compile と同じ位置)。
      * 頂点の書き出しは Cube#compile と同じ 12 引数の addVertex を使う。

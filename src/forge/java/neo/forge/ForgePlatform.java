@@ -26,11 +26,6 @@ final class ForgePlatform extends ModManagerPlatform {
     private Map<String, Function<Screen, Screen>> forgeConfigScreens;
 
     @Override
-    public Path configDir() {
-        return FMLPaths.CONFIGDIR.get();
-    }
-
-    @Override
     public Path modsDir() {
         return FMLPaths.MODSDIR.get();
     }

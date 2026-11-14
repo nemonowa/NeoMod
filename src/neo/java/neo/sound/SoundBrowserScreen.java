@@ -171,7 +171,7 @@ public final class SoundBrowserScreen extends Screen {
         listTop = top + 43;
 
         // 右側面のタブ (選択中)。押すとクリエイティブインベントリに戻る
-        addRenderableWidget(new SoundBrowser.SideTab(left + panelWidth - SoundBrowser.TAB_OVERLAP, top + 6, true, this::back));
+        addRenderableWidget(new SoundBrowser.SideTab(left + panelWidth - SoundBrowser.TAB_OVERLAP, top + 6, true, false, this::back));
         refreshRows();
     }
 

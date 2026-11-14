@@ -315,7 +315,8 @@ final class WideMapScan {
             return;
         }
 
-        if (!current.cancelled && !current.finished) {
+        // 止めた後も、後始末 (step の cleanup) が済むまで回す。cancel() が実行中の step と行き違うと、後始末の予約が落ちるため
+        if (!current.finished) {
             current.schedule();
         }
     }

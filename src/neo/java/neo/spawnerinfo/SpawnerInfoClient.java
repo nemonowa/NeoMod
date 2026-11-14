@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.DoubleFunction;
 import neo.event.NeoClientEvents;
 import neo.event.NeoKeyMappings;
 import neo.menu.config.ModManagerConfig;
@@ -20,6 +19,7 @@ import net.minecraft.gizmos.Gizmos;
 import net.minecraft.gizmos.Gizmos.TemporaryCollection;
 import net.minecraft.gizmos.TextGizmo.Style;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
@@ -30,6 +30,8 @@ public class SpawnerInfoClient {
    private static final Map<Integer, SpawnerData> CACHE = new ConcurrentHashMap<>();
    private static final Category CATEGORY = Category.register(Identifier.fromNamespaceAndPath(SpawnerInfoMod.MOD_ID, "main"));
    private static final KeyMapping CYCLE_SPAWNER_KEY = register("key.spawnerinfo.cycle_spawner");
+   /** 検知距離 (範囲の球) の表示を切り替える。既定の割り当ては無し (操作設定で割り当てる)。 */
+   private static final KeyMapping TOGGLE_RANGE_KEY = register("key.spawnerinfo.toggle_range");
 
    private static final long CACHE_TTL_MILLIS = 5000L;
    private static final int RANGE_LINE_COLOR = -431964161;
@@ -39,6 +41,8 @@ public class SpawnerInfoClient {
    private static final float[] SPHERE_LATITUDES = new float[]{-60.0F, -30.0F, 0.0F, 30.0F, 60.0F};
 
    private static boolean nearestOnlyMode = false;
+   private static boolean subscribed;
+   private static Object subscribedConnection;
    private static Integer nearestSelectedEntityId = null;
 
    private static KeyMapping register(String name) {
@@ -49,7 +53,6 @@ public class SpawnerInfoClient {
    public static void init() {
       LOGGER.info("[SpawnerInfo] クライアント側モジュールを初期化しました(neo 内部)。このログが出ていない場合、クライアント側にMODが正しく導入されていません。");
       // 受信は neo.mixin.MixinClientPacketListener から onPayload() が呼ばれる
-      SpawnerInfoMod.setSendEnabled(false); // 設定が OFF の間、シングル/LAN のサーバー側も何もしない (tick で設定に追従)
       NeoClientEvents.registerEndExtraction(() -> {
          boolean glow = SpawnerGlowRenderer.isActive();
          boolean info = isActive();
@@ -69,14 +72,30 @@ public class SpawnerInfoClient {
       });
       NeoClientEvents.registerEndClientTick(client -> {
          boolean master = isEnabled();
-         SpawnerInfoMod.setSendEnabled(master);
          if (!master) {
             clearState();
          }
+         updateSubscription(client);
 
          SpawnerGlowRenderer.onClientTick(client);
          handleKeys(client);
       });
+   }
+
+   /**
+    * サーバーへ「出している / やめた」を、変わった時だけ知らせる (接続が変わったら知らせ直す)。
+    * サーバーは出している人にだけ送るので、誰も出していない間はサーバー側の走査も無い。
+    */
+   private static void updateSubscription(Minecraft client) {
+      Object connection = client.getConnection();
+      boolean want = connection != null && isActive();
+      if (connection != subscribedConnection || want != subscribed) {
+         if (connection != null && (want || subscribed && connection == subscribedConnection)) {
+            client.getConnection().send(new ServerboundCustomPayloadPacket(new SpawnerSubscribePayload(want)));
+         }
+         subscribed = want;
+         subscribedConnection = connection;
+      }
    }
 
    /** スポナー情報を使ってよいか (全体スイッチが ON で、自分の権限がゲームマスター以上。ゲームモードは問わない)。スポナー系の機能はすべてこれを前提にする。 */
@@ -110,15 +129,25 @@ public class SpawnerInfoClient {
    }
 
    // ---- キー入力 ----
-   // 設定で切り替えられるもの (発光・範囲球・全表示) はキーを持たない。
-   // 「最寄りのみ表示」だけは、押した瞬間の最寄りスポナーを選ぶ操作なので、キーを残している。
+   // 「最寄りのみ表示」は押した瞬間の最寄りスポナーを選ぶ操作なのでキーにしている。範囲球 (検知距離) は、設定に加えてキーでも切り替えられる。
+   // どちらも既定の割り当ては無し。
 
    private static void handleKeys(Minecraft client) {
+      while (TOGGLE_RANGE_KEY.consumeClick()) {
+         if (isEnabled()) {
+            boolean on = !ModManagerConfig.SPAWNER_RANGE.getValue();
+            ModManagerConfig.SPAWNER_RANGE.setValue(on);
+            client.options.save(); // 設定画面で変えた時と同じく options.txt に残す
+            notify(client, Component.translatable(on ? "neo.spawner.range_on" : "neo.spawner.range_off"));
+         } else {
+            notify(client, Component.translatable("neo.spawner.disabled"));
+         }
+      }
       while (CYCLE_SPAWNER_KEY.consumeClick()) {
          if (isEnabled()) {
             toggleNearestOnly(client);
          } else {
-            notify(client, "§7[SpawnerInfo] 無効です (Mod 設定の「スポナー情報」をオンにして、ゲームマスター以上の権限で使ってください)");
+            notify(client, Component.translatable("neo.spawner.disabled"));
          }
       }
    }
@@ -127,22 +156,22 @@ public class SpawnerInfoClient {
       nearestOnlyMode = !nearestOnlyMode;
       if (!nearestOnlyMode) {
          nearestSelectedEntityId = null;
-         notify(client, "§7[SpawnerInfo] 最寄りのみ表示: OFF");
+         notify(client, Component.translatable("neo.spawner.nearest_off"));
          return;
       }
 
       Entry<Integer, SpawnerData> nearest = findNearestEntry(client, collectVisibleEntries(client));
       nearestSelectedEntityId = nearest == null ? null : nearest.getKey();
       if (nearest == null) {
-         notify(client, "§a[SpawnerInfo] 最寄りのみ表示: ON §7(近くにスポナーなし)");
+         notify(client, Component.translatable("neo.spawner.nearest_none"));
       } else {
-         notify(client, "§a[SpawnerInfo] 最寄りのみ表示: ON §f(" + displayLabel(nearest.getValue()) + ")");
+         notify(client, Component.translatable("neo.spawner.nearest_on", displayLabel(nearest.getValue())));
       }
    }
 
-   private static void notify(Minecraft client, String message) {
+   private static void notify(Minecraft client, Component message) {
       if (client.player != null) {
-         client.player.sendOverlayMessage(Component.literal(message));
+         client.player.sendOverlayMessage(message);
       }
    }
 
@@ -249,7 +278,7 @@ public class SpawnerInfoClient {
 
       for (Entry<Integer, SpawnerData> entry : entries) {
          Entity entity = client.level.getEntity(entry.getKey());
-         List<String> lines = buildLabelLines(entry.getValue());
+         List<String> lines = entry.getValue().label();
          Vec3 pos = entity.position();
          double baseY = pos.y + entity.getBbHeight() + 0.5;
 
@@ -260,17 +289,19 @@ public class SpawnerInfoClient {
       }
    }
 
-   private static List<String> buildLabelLines(SpawnerData data) {
-      List<String> lines = new ArrayList<>();
+   /** 頭上のラベル。受信した時 (約 1 秒ごと) に 1 回だけ作る (毎フレーム作らない)。 */
+   private static List<String> buildLabelLines(SpawnerDataPayload data) {
+      List<String> lines = new ArrayList<>(8);
       lines.add("§e#" + data.summonId());
-      lines.add(hasName(data) ? "§f" + data.customName() : "§7(名前未取得)");
+      boolean named = data.customName() != null && !data.customName().isEmpty();
+      lines.add(named ? "§f" + data.customName() : "§7" + Component.translatable("neo.spawner.no_name").getString());
       lines.add("§bDelay: §f" + data.delay());
       lines.add("§bMin/Max: §f" + data.minSpawnDelay() + "/" + data.maxSpawnDelay());
       lines.add("§bCount: §f" + data.spawnCount());
       lines.add("§bMaxNearby: §f" + data.maxNearbyEntities());
       lines.add("§bPlayerRange: §f" + data.requiredPlayerRange());
       lines.add("§bSpawnRange: §f" + data.spawnRange());
-      return lines;
+      return List.copyOf(lines);
    }
 
    private static void emitSphereWireframe(Vec3 center, double radius) {
@@ -292,32 +323,48 @@ public class SpawnerInfoClient {
          return;
       }
 
-      emitClosedCircle(angle -> new Vec3(cx + Math.cos(angle) * radius, cy, cz + Math.sin(angle) * radius));
+      emitClosedCircle((cos, sin) -> new Vec3(cx + cos * radius, cy, cz + sin * radius));
    }
 
    /** 方位角 azimuth の鉛直面上の円(経線)。 */
    private static void emitMeridianCircle(Vec3 center, double radius, double azimuth) {
       double dx = Math.cos(azimuth);
       double dz = Math.sin(azimuth);
-      emitClosedCircle(angle -> {
-         double horiz = Math.cos(angle) * radius;
-         return new Vec3(center.x + dx * horiz, center.y + Math.sin(angle) * radius, center.z + dz * horiz);
+      emitClosedCircle((cos, sin) -> {
+         double horiz = cos * radius;
+         return new Vec3(center.x + dx * horiz, center.y + sin * radius, center.z + dz * horiz);
       });
    }
 
-   /** angle(0〜2π) から点を返す関数を CIRCLE_SEGMENTS 分割し、隣り合う点を線で結ぶ。 */
-   private static void emitClosedCircle(DoubleFunction<Vec3> pointAt) {
+   /** 円の分割点の cos・sin (毎フレーム三角関数を計算しない)。 */
+   private static final double[] CIRCLE_COS = new double[CIRCLE_SEGMENTS + 1];
+   private static final double[] CIRCLE_SIN = new double[CIRCLE_SEGMENTS + 1];
+
+   static {
+      for (int i = 0; i <= CIRCLE_SEGMENTS; i++) {
+         double angle = i * 2.0 * Math.PI / CIRCLE_SEGMENTS;
+         CIRCLE_COS[i] = Math.cos(angle);
+         CIRCLE_SIN[i] = Math.sin(angle);
+      }
+   }
+
+   /** 分割点の番号 (cos・sin は表から) から点を返す関数で CIRCLE_SEGMENTS 分割し、隣り合う点を線で結ぶ。 */
+   private static void emitClosedCircle(CirclePoint pointAt) {
       Vec3 prev = null;
 
       for (int i = 0; i <= CIRCLE_SEGMENTS; i++) {
-         double angle = i * 2.0 * Math.PI / CIRCLE_SEGMENTS;
-         Vec3 p = pointAt.apply(angle);
+         Vec3 p = pointAt.at(CIRCLE_COS[i], CIRCLE_SIN[i]);
          if (prev != null) {
             Gizmos.line(prev, p, RANGE_LINE_COLOR, RANGE_LINE_WIDTH).setAlwaysOnTop();
          }
 
          prev = p;
       }
+   }
+
+   @FunctionalInterface
+   private interface CirclePoint {
+      Vec3 at(double cos, double sin);
    }
 
    private record SpawnerData(
@@ -330,7 +377,8 @@ public class SpawnerInfoClient {
       int maxNearbyEntities,
       int requiredPlayerRange,
       int spawnRange,
-      long receivedAt
+      long receivedAt,
+      List<String> label
    ) {
       SpawnerData(SpawnerDataPayload p, long receivedAt) {
          this(
@@ -343,7 +391,8 @@ public class SpawnerInfoClient {
             p.maxNearbyEntities(),
             p.requiredPlayerRange(),
             p.spawnRange(),
-            receivedAt
+            receivedAt,
+            buildLabelLines(p)
          );
       }
    }

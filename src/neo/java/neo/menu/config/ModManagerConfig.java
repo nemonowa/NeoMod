@@ -56,6 +56,9 @@ public class ModManagerConfig {
     /** 旧版の騎乗位置: ゾンビ・スケルトン・ウィッチ・エンダーマンに乗ったときの高さを 1.10.2 に合わせる。自分がサーバーのとき (シングル・LAN のホスト) だけ効く (neo.mount)。 */
     public static final BooleanConfigOption LEGACY_RIDE_POSITION = new BooleanConfigOption("legacy_ride_position", true);
 
+    /** ランダムエンティティの絵: リソースパックの optifine/random/entity/ (OptiFine と同じ書き方) で、名前の付いた生き物などの本体の絵を差し替える。名前の条件とランダムだけ (neo.entitytex)。 */
+    public static final BooleanConfigOption RANDOM_ENTITY_TEXTURES = new BooleanConfigOption("random_entity_textures", true);
+
     @FileOnlyConfig
     public static final BooleanConfigOption MODIFY_TITLE_SCREEN = new BooleanConfigOption("modify_title_screen", true);
     @FileOnlyConfig
@@ -76,6 +79,9 @@ public class ModManagerConfig {
     /** サウンドブラウザのお気に入り (サウンドイベントの ID)。options.txt の neo_sound_favorites 行。 */
     @FileOnlyConfig
     public static final StringSetConfigOption SOUND_FAVORITES = new StringSetConfigOption("sound_favorites", new HashSet<>());
+    /** 一度リソースパックの一覧へ足した同梱パックの ID (neo.bundle.BuiltinPackSelection)。外した後に足し直さないために覚える。options.txt の neo_builtin_packs_seen 行。 */
+    @FileOnlyConfig
+    public static final StringSetConfigOption BUILTIN_PACKS_SEEN = new StringSetConfigOption("builtin_packs_seen", new HashSet<>());
 
     public static OptionInstance<?>[] asOptions() {
         ArrayList<OptionInstance<?>> options = new ArrayList<>();

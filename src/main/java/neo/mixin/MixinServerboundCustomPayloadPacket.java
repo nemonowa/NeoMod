@@ -5,7 +5,9 @@ import java.util.List;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import neo.map.StructureScanRequestPayload;
 import neo.map.WideScanRequestPayload;
+import neo.spawnerinfo.SpawnerSubscribePayload;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
@@ -27,6 +29,8 @@ public abstract class MixinServerboundCustomPayloadPacket {
     ) {
         List<CustomPacketPayload.TypeAndCodec<? super FriendlyByteBuf, ?>> list = new ArrayList<>(original);
         list.add(new CustomPacketPayload.TypeAndCodec<FriendlyByteBuf, WideScanRequestPayload>(WideScanRequestPayload.TYPE, WideScanRequestPayload.CODEC));
+        list.add(new CustomPacketPayload.TypeAndCodec<FriendlyByteBuf, StructureScanRequestPayload>(StructureScanRequestPayload.TYPE, StructureScanRequestPayload.CODEC));
+        list.add(new CustomPacketPayload.TypeAndCodec<FriendlyByteBuf, SpawnerSubscribePayload>(SpawnerSubscribePayload.TYPE, SpawnerSubscribePayload.CODEC));
         return list;
     }
 }

@@ -47,6 +47,8 @@ public final class WorldMapClient {
     private static MapPins pins;
     private static MapMarkers markers;
     private static String worldKey;
+    private static long lastPlayerChunk = Long.MIN_VALUE;
+    private static net.minecraft.client.multiplayer.ClientLevel sessionLevel;
     private static int saveTimer;
     private static PendingTeleport pendingTeleport;
 
@@ -104,9 +106,14 @@ public final class WorldMapClient {
 
         clientTicks++;
         ensureSession(client);
+        // 地図の塗り直しは、別のチャンクへ移った時だけ (同じチャンクの中で動いても塗り直さない)
+        long chunk = net.minecraft.world.level.ChunkPos.pack(client.player.getBlockX() >> 4, client.player.getBlockZ() >> 4);
+        if (chunk != lastPlayerChunk) {
+            lastPlayerChunk = chunk;
+            UPDATER.trigger();
+        }
         UPDATER.tick(client, store);
         WideMapScan.tick(client, store);
-        markers.tick(client);
         tickPendingTeleport(client);
         if (++saveTimer >= SAVE_INTERVAL_TICKS) {
             saveTimer = 0;
@@ -127,9 +134,13 @@ public final class WorldMapClient {
             boolean spectator = client.gameMode != null && client.gameMode.getPlayerMode() == GameType.SPECTATOR;
             if (!OPEN_KEY.isDown()) {
                 openPressedAt = 0L;
+                markers.onMapOpened(client);
+                UPDATER.trigger();
                 client.gui.setScreen(new WorldMapScreen(store, pins, markers, client.level.dimension(), spectator, false));
             } else if (System.currentTimeMillis() - openPressedAt > HOLD_MILLIS) {
                 openPressedAt = 0L;
+                markers.onMapOpened(client);
+                UPDATER.trigger();
                 client.gui.setScreen(new WorldMapScreen(store, pins, markers, client.level.dimension(), true, true));
             }
         } else if (client.gui.screen() != null) {
@@ -138,6 +149,11 @@ public final class WorldMapClient {
     }
 
     private static void ensureSession(Minecraft client) {
+        // 同じ ClientLevel の間はワールドも同じなので、名前 (正規表現・文字列の整形を含む) を毎 tick 作り直さない
+        if (store != null && client.level == sessionLevel) {
+            return;
+        }
+        sessionLevel = client.level;
         String key = worldKey(client);
         if (store != null && key.equals(worldKey)) {
             return;
@@ -145,6 +161,7 @@ public final class WorldMapClient {
 
         endSession();
         worldKey = key;
+        sessionLevel = client.level;
         Path dataFolder = dataFolder(client, key);
         store = new MapStore(dataFolder, client.getFixerUpper(), client.level.registryAccess());
         pins = new MapPins(dataFolder); // ピン (保存する)
@@ -201,6 +218,7 @@ public final class WorldMapClient {
 
     private static void endSession() {
         pendingTeleport = null;
+        sessionLevel = null;
         if (store == null) {
             return;
         }

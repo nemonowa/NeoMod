@@ -21,9 +21,6 @@ public abstract class ModManagerPlatform {
         return current;
     }
 
-    /** 設定ファイルの置き場 (config フォルダ)。 */
-    public abstract Path configDir();
-
     /** Mod の jar を置く mods フォルダ。 */
     public abstract Path modsDir();
 

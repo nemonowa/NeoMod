@@ -19,14 +19,14 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 /**
- * サウンドブラウザ (クリエイティブインベントリの右側面のタブ)。
+ * サウンドブラウザ (クリエイティブインベントリの左側面の下のタブ。右上はステータス効果の表示と重なるため)。
  * 設定 sound_browser が OFF のときは、クリエイティブ画面を開いたときに設定を 1 回引いて何もしない (タブを作らない)。
  */
 public final class SoundBrowser {
     /** クリエイティブ画面の大きさ (26.3 の CreativeModeInventoryScreen のコンストラクタ: 195 x 136)。 */
     static final int CREATIVE_WIDTH = 195;
     static final int CREATIVE_HEIGHT = 136;
-    /** バニラのレシピ本の横向きタブ (recipe_book/tab*.png、35 x 27) を左右反転して、右側面に使う。 */
+    /** バニラのレシピ本の横向きタブ (recipe_book/tab*.png、35 x 27)。 */
     static final int TAB_WIDTH = 35;
     static final int TAB_HEIGHT = 27;
     /** タブが本体の縁に重なる幅 (レシピ本と同じく、開いた側を本体の下に潜らせる)。 */
@@ -47,7 +47,7 @@ public final class SoundBrowser {
         // leftPos / topPos は AbstractContainerScreen#init と同じ式 ((画面 - 大きさ) / 2)
         int left = (width - CREATIVE_WIDTH) / 2;
         int top = (height - CREATIVE_HEIGHT) / 2;
-        ScreenWidgets.getWidgets(screen).add(new SideTab(left + CREATIVE_WIDTH - TAB_OVERLAP, top + 4, false,
+        ScreenWidgets.getWidgets(screen).add(new SideTab(left - TAB_WIDTH + TAB_OVERLAP, top + CREATIVE_HEIGHT - TAB_HEIGHT - 4, false, true,
                 () -> client.gui.setScreen(new SoundBrowserScreen(screen))));
     }
 
@@ -58,19 +58,23 @@ public final class SoundBrowser {
 
     static String number(float value) {
         String s = String.format(Locale.ROOT, "%.2f", value);
-        s = s.replaceAll("0+$", "");
-        return s.endsWith(".") ? s.substring(0, s.length() - 1) : s;
+        int end = s.length();
+        while (s.charAt(end - 1) == '0') end--;
+        if (s.charAt(end - 1) == '.') end--;
+        return s.substring(0, end);
     }
 
-    /** 右側面に縦に出るタブ (音符ブロックのアイコン)。選択中は本体と同じ色でつなげて描く。 */
+    /** 側面に縦に出るタブ (音符ブロックのアイコン)。左側面ならレシピ本のタブと同じ向き、右側面なら左右反転して描く。選択中は本体と同じ色でつなげて描く。 */
     static final class SideTab extends AbstractButton {
         private static final ItemStack ICON = new ItemStack(Items.NOTE_BLOCK);
         private final boolean selected;
+        private final boolean leftSide;
         private final Runnable action;
 
-        SideTab(int x, int y, boolean selected, Runnable action) {
+        SideTab(int x, int y, boolean selected, boolean leftSide, Runnable action) {
             super(x, y, TAB_WIDTH, TAB_HEIGHT, Component.translatable("neo.sound.tab"));
             this.selected = selected;
+            this.leftSide = leftSide;
             this.action = action;
         }
 
@@ -82,14 +86,19 @@ public final class SoundBrowser {
         @Override
         protected void extractContents(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
             int x = getX(), y = getY(), w = getWidth(), h = getHeight();
-            // 左右反転して描く (レシピ本のタブは左向き)。選択中は本体側へ少し伸びて見える (バニラと同じスプライト)
-            g.pose().pushMatrix();
-            g.pose().translate(x + w + (selected ? 2 : 0), y);
-            g.pose().scale(-1.0F, 1.0F);
-            g.blitSprite(RenderPipelines.GUI_TEXTURED, selected ? TAB_SELECTED_SPRITE : TAB_SPRITE, 0, 0, w, h);
-            g.pose().popMatrix();
-            // アイコンの位置もレシピ本のタブに合わせる (選択中は 2px 外へ)
-            g.item(ICON, x + w - 16 - 9 + (selected ? 2 : 0), y + 5);
+            int out = selected ? 2 : 0; // 選択中は 2px 外へ (バニラと同じスプライト)
+            if (leftSide) {
+                // レシピ本のタブは左向きなので、そのまま描く
+                g.blitSprite(RenderPipelines.GUI_TEXTURED, selected ? TAB_SELECTED_SPRITE : TAB_SPRITE, x - out, y, w, h);
+                g.item(ICON, x + 9 - out, y + 5);
+            } else {
+                g.pose().pushMatrix();
+                g.pose().translate(x + w + out, y);
+                g.pose().scale(-1.0F, 1.0F);
+                g.blitSprite(RenderPipelines.GUI_TEXTURED, selected ? TAB_SELECTED_SPRITE : TAB_SPRITE, 0, 0, w, h);
+                g.pose().popMatrix();
+                g.item(ICON, x + w - 16 - 9 + out, y + 5);
+            }
             if (isHovered()) {
                 g.setTooltipForNextFrame(Minecraft.getInstance().font, getMessage(), mouseX, mouseY);
             }

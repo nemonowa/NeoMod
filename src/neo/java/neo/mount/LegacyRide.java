@@ -1,5 +1,6 @@
 package neo.mount;
 
+import java.util.function.BooleanSupplier;
 import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -20,8 +21,8 @@ import net.minecraft.world.phys.Vec3;
  * 乗り物はゾンビ系・スケルトン系・ウィッチ・エンダーマンだけ (ほかの乗り物はバニラのまま)。
  *
  * 位置はサーバーとクライアントがそれぞれ計算するので、両方で値をそろえる。シングルプレイ・LAN のホストは
- * クライアントの設定を {@link #enabled} へ写し (同じ JVM の内蔵サーバーもこの値を見る)、専用サーバーは常に ON。
- * サーバーは参加時と値が変わった時に {@link LegacyRidePayload} を送り、MOD 入りのクライアントはそれに従う。
+ * クライアントの設定を {@link #enabled()} で返し (同じ JVM の内蔵サーバーもこの値を見る)、専用サーバーは常に ON。
+ * サーバーは参加時と設定が変わった時に {@link LegacyRidePayload} を送り、MOD 入りのクライアントはそれに従う。
  * MOD の無いクライアントはバニラの高さで描く。
  * このクラスはサーバー側からも呼ばれるので、クライアント専用のクラスを参照しない (P-63)。
  */
@@ -31,26 +32,30 @@ public final class LegacyRide {
     /** 1.10.2 の getYOffset (プレイヤー・大人のゾンビ・スケルトン)。 */
     private static final double RIDER_OFFSET = 0.35;
 
-    public static volatile boolean enabled;
-    /** 最後にクライアントへ送った値 (サーバースレッドだけが触る)。 */
-    private static boolean lastSent;
+    /**
+     * いま効いているか。専用サーバーは常に ON (クライアントが無いので、この既定のまま)。
+     * クライアントは LegacyRideClient が「自分がサーバーなら設定、ほかのサーバーならそこから届いた値」を返す物に差し替える
+     * (同じ JVM の内蔵サーバーもこれを見る)。毎 tick 写さずに、使う時に聞く (P-45)。
+     */
+    private static volatile BooleanSupplier source = () -> true;
 
     private LegacyRide() {}
 
-    public static void onServerTick(MinecraftServer server) {
-        if (server.isDedicatedServer()) {
-            enabled = true;
-        }
+    public static boolean enabled() {
+        return source.getAsBoolean();
+    }
 
-        boolean value = enabled;
-        if (value != lastSent) {
-            lastSent = value;
-            server.getPlayerList().broadcastAll(new ClientboundCustomPayloadPacket(new LegacyRidePayload(value)));
-        }
+    public static void setSource(BooleanSupplier supplier) {
+        source = supplier;
     }
 
     public static void sendTo(ServerPlayer player) {
-        player.connection.send(new ClientboundCustomPayloadPacket(new LegacyRidePayload(enabled)));
+        player.connection.send(new ClientboundCustomPayloadPacket(new LegacyRidePayload(enabled())));
+    }
+
+    /** 値が変わった時に、参加者全員へ知らせる (サーバーのスレッドで呼ぶ)。 */
+    public static void broadcast(MinecraftServer server) {
+        server.getPlayerList().broadcastAll(new ClientboundCustomPayloadPacket(new LegacyRidePayload(enabled())));
     }
 
     /** 乗り物として高さを合わせる型か。 */
@@ -60,7 +65,7 @@ public final class LegacyRide {
 
     /** 乗り物の乗せ位置 (LivingEntity#getPassengerRidingPosition の戻り値) を置き換える。 */
     public static Vec3 ridingPosition(LivingEntity vehicle, Vec3 original) {
-        if (!enabled || !isLegacyVehicle(vehicle)) {
+        if (!isLegacyVehicle(vehicle) || !enabled()) {
             return original;
         }
 
@@ -69,12 +74,8 @@ public final class LegacyRide {
 
     /** 乗る側の VEHICLE アタッチメント (Entity#getVehicleAttachmentPoint の戻り値) を置き換える。 */
     public static Vec3 vehicleAttachment(Entity rider, Vec3 original) {
-        if (!enabled) {
-            return original;
-        }
-
         Entity vehicle = rider.getVehicle();
-        if (vehicle == null || !isLegacyVehicle(vehicle)) {
+        if (vehicle == null || !isLegacyVehicle(vehicle) || !enabled()) {
             return original;
         }
 

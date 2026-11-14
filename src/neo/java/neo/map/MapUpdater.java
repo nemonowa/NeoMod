@@ -30,6 +30,8 @@ import java.util.Map;
  * バニラ (MapItem#inventoryTick) は「手 (メインハンド・オフハンド) に持っている地図」だけを毎 tick 更新する
  * (ロックされていない地図のみ)。つまり多くても 1 tick に 2 枚。ここでは「更新半径に掛かる升目の地図」を
  * 1 tick に UPDATES_PER_TICK 枚ずつ回す (近い升目が先。バニラの最大の 2 倍の枚数なので、負荷を下げたければ減らす)。
+ * ただし回すのは、きっかけ (別のチャンクへ移った・マップを開いた・ワールドに入った) の後に全体を 1 度塗り終えるまでで、
+ * 同じ場所に居続ける間は何もしない ({@link #trigger}。P-45)。外側も 1 周したら次のきっかけまで待つ。
  * 新しい升目は、色が 1 ピクセルでも付いた時点でバニラの作成手順 (ID 採番 + 保管) で登録する。
  *
  * 外側 (更新半径より遠く、クライアントにロード済みのチャンクの範囲まで): バニラの更新は「更新する人」の位置の周りしか見ないので、
@@ -54,8 +56,6 @@ final class MapUpdater {
     private static final int FULL_PASS_CALLS = 16;
     /** 外側の更新の限界 (ブロック)。実際の範囲はロード済みのチャンクで決まる。 */
     private static final int MAX_OUTER_RANGE = 32 * 16;
-    /** 外側の更新の対象が無いときに、次の巡回を始めるまで待つ tick。 */
-    private static final int OUTER_IDLE_TICKS = 40;
 
     /** 外側の更新の地点 (ブロック座標)。 */
     private record Point(int x, int z) {}
@@ -63,6 +63,11 @@ final class MapUpdater {
     /** 色がまだ付いていない地図 (登録前)。 */
     private final Map<String, MapItemSavedData> pending = new HashMap<>();
     private int turn;
+    /** 内側の残りの更新回数。0 = 塗り終えてきっかけ待ち。INNER_RECOMPUTE = 次の tick で数え直す。 */
+    private int innerRemaining = INNER_RECOMPUTE;
+    private static final int INNER_RECOMPUTE = -1;
+    /** 外側の巡回を 1 周終えて、次のきっかけを待っているか。 */
+    private boolean outerWaiting;
 
     // 外側の更新の進み具合
     private ClientLevel viewerLevel;
@@ -74,7 +79,6 @@ final class MapUpdater {
     private List<Target> pointTargets;
     private int targetIndex;
     private int callsDone;
-    private int outerIdle;
     private long lastTickNanos;
     /** 何巡目か (SCALE_INTERVAL の判定用)。 */
     private int passCount;
@@ -87,6 +91,7 @@ final class MapUpdater {
     void reset() {
         pending.clear();
         turn = 0;
+        trigger();
         clearOuter();
         viewerLevel = null;
         viewer = null;
@@ -99,7 +104,6 @@ final class MapUpdater {
         pointTargets = null;
         targetIndex = 0;
         callsDone = 0;
-        outerIdle = 0;
         lastTickNanos = 0;
         passCount = 0;
         resetPassStats();
@@ -112,7 +116,20 @@ final class MapUpdater {
         passNanos = 0;
     }
 
+    /**
+     * 塗り直しのきっかけ (プレイヤーが別のチャンクへ移った・マップを開いた・ワールドに入った)。
+     * きっかけが無い間は tick で何もしない (同じ場所に居続ける間に毎 tick 塗り直さない。P-45)。
+     * ブロックを壊した・置いたなどの変化は、次のきっかけで地図に出る。
+     */
+    void trigger() {
+        innerRemaining = INNER_RECOMPUTE;
+        outerWaiting = false;
+    }
+
     void tick(Minecraft client, MapStore store) {
+        if (innerRemaining == 0 && outerWaiting) {
+            return; // きっかけ待ち
+        }
         ClientLevel level = client.level;
         LocalPlayer player = client.player;
         if (level == null || player == null) {
@@ -122,16 +139,26 @@ final class MapUpdater {
         ResourceKey<Level> dimension = level.dimension();
         // バニラと同じ更新半径 (MapItem#update の radius をブロックに直したもの)
         int radius = level.dimensionType().hasCeiling() ? 64 : 128;
-        List<Target> targets = ScanJob.targetsInRange(player.getX(), player.getZ(), radius);
-        if (!targets.isEmpty()) {
-            int updates = Math.min(UPDATES_PER_TICK, targets.size());
+        if (innerRemaining != 0) {
+            List<Target> targets = ScanJob.targetsInRange(player.getX(), player.getZ(), radius);
+            if (innerRemaining == INNER_RECOMPUTE) {
+                // バニラの更新は 1 回で 16 列に 1 列なので、升目ごとに 16 回で全体を 1 度塗り終える
+                innerRemaining = targets.size() * FULL_PASS_CALLS;
+            }
+            int updates = Math.min(Math.min(UPDATES_PER_TICK, targets.size()), innerRemaining);
             for (int i = 0; i < updates; i++) {
                 Target target = targets.get(Math.floorMod(turn++, targets.size()));
                 update(level, player, store, dimension, target, 1);
             }
+            innerRemaining -= updates;
+            if (targets.isEmpty()) {
+                innerRemaining = 0;
+            }
         }
 
-        tickOuter(level, player, store, dimension, radius);
+        if (!outerWaiting) {
+            tickOuter(level, player, store, dimension, radius);
+        }
     }
 
     // ---- 外側 (更新半径より遠く) ----
@@ -143,11 +170,6 @@ final class MapUpdater {
             viewer = new RemotePlayer(level, player.getGameProfile());
             viewer.setId(-1); // ワールドに追加しないので ID が 0 のまま。更新は持ち主を HashMap に入れ、hashCode が getId を呼ぶので、本物と重ならない負の ID を付ける (WideMapScan と同じ)
             viewerLevel = level;
-        }
-
-        if (outerIdle > 0) {
-            outerIdle--;
-            return;
         }
 
         long start = System.nanoTime();
@@ -220,7 +242,7 @@ final class MapUpdater {
             pointIndex = 0;
         }
 
-        // 巡回が終わった: 次の tick に組み直す。対象が少ないときに毎 tick 組み直さないよう、少し待つ
+        // 巡回が終わった: 次のきっかけ (別のチャンクへ移った・マップを開いた) まで待つ
         if (passCalls > 0) {
             LOGGER.info("[NeoMap] 外側の更新 {} 巡目: 地点 {}、update {} 回、{} tick、合計 {} ms (1 tick 平均 {} ms)",
                 passCount, passPoints, passCalls, passTicks, passNanos / 1_000_000, passTicks == 0 ? 0 : passNanos / passTicks / 1000 / 1000.0);
@@ -229,7 +251,7 @@ final class MapUpdater {
         resetPassStats();
         passCount++;
         rings = null;
-        outerIdle = OUTER_IDLE_TICKS;
+        outerWaiting = true;
         return false;
     }
 

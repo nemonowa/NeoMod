@@ -4,7 +4,11 @@ import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import neo.map.WideMapScanServer;
+import neo.map.StructureDiscovery;
+import neo.map.StructureScanRequestPayload;
 import neo.map.WideScanRequestPayload;
+import neo.spawnerinfo.SpawnerInfoMod;
+import neo.spawnerinfo.SpawnerSubscribePayload;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -21,6 +25,12 @@ public abstract class MixinServerGamePacketListenerImpl {
     private void neo$handlePayload(ServerboundCustomPayloadPacket packet, CallbackInfo ci) {
         if (packet.payload() instanceof WideScanRequestPayload request) {
             WideMapScanServer.onRequest(player, request);
+            ci.cancel();
+        } else if (packet.payload() instanceof SpawnerSubscribePayload subscribe) {
+            SpawnerInfoMod.onSubscribe(player, subscribe);
+            ci.cancel();
+        } else if (packet.payload() instanceof StructureScanRequestPayload) {
+            StructureDiscovery.onRequest(player);
             ci.cancel();
         }
     }

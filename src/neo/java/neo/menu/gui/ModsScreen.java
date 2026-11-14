@@ -62,6 +62,8 @@ public class ModsScreen extends Screen implements ModsScreenHost {
     private final Set<String> showModChildren = new HashSet<>();
 
     private EditBox searchBox;
+    private Object countKey;
+    private Component countFull, countMods, countLibraries;
     private ModListWidget modList;
     private @Nullable SpriteIconButton configureButton;
     private AbstractWidget websiteButton;
@@ -259,7 +261,8 @@ public class ModsScreen extends Screen implements ModsScreenHost {
         }
 
         if (!ModManagerConfig.CONFIG_MODE.getValue()) {
-            Component fullModCount = this.computeModCountText(true, false);
+            updateCountTexts();
+            Component fullModCount = this.countFull;
             if (font.width(fullModCount) <= modList.getWidth() - 5) {
                 graphics.text(font,
                         fullModCount.getVisualOrderText(),
@@ -271,7 +274,7 @@ public class ModsScreen extends Screen implements ModsScreenHost {
             } else {
                 graphics.text(
                         font,
-                        computeModCountText(false, false).getVisualOrderText(),
+                        this.countMods.getVisualOrderText(),
                         this.searchBoxX,
                         46,
                         0xFFFFFFFF,
@@ -279,7 +282,7 @@ public class ModsScreen extends Screen implements ModsScreenHost {
                 );
                 graphics.text(
                         font,
-                        computeLibraryCountText(false).getVisualOrderText(),
+                        this.countLibraries.getVisualOrderText(),
                         this.searchBoxX,
                         57,
                         0xFFFFFFFF,
@@ -364,6 +367,20 @@ public class ModsScreen extends Screen implements ModsScreenHost {
                 );
             }
         }
+    }
+
+    /**
+     * 件数の文は、一覧の表示 (件数・検索語・非表示の Mod) が変わった時だけ作り直す (毎フレーム、全 Mod を数えて文を作らない)。
+     */
+    private void updateCountTexts() {
+        Object key = List.of(this.modList.children().size(), this.searchBox.getValue(), ModManagerConfig.HIDDEN_MODS.getValue());
+        if (key.equals(this.countKey)) {
+            return;
+        }
+        this.countKey = key;
+        this.countFull = computeModCountText(true, false);
+        this.countMods = computeModCountText(false, false);
+        this.countLibraries = computeLibraryCountText(false);
     }
 
     private Component computeModCountText(boolean includeLibs, boolean onInit) {

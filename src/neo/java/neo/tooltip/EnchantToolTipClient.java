@@ -2,6 +2,7 @@ package neo.tooltip;
 
 import neo.menu.config.ModManagerConfig;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.ToDoubleBiFunction;
 import java.util.function.ToDoubleFunction;
 import net.minecraft.ChatFormatting;
@@ -20,44 +21,44 @@ public final class EnchantToolTipClient {
    /** 釣り針 Lure: レベル超過バグ時は警告、通常時は待ち時間短縮を表示する。 */
    private static final Line LURE = (lines, stack, e) -> {
       if (EnchantEffects.isLureBugged(e)) {
-         lines.add(Component.literal("釣り不可(待ち時間の抽選が壊れるバグ、レベルVI超過)").withStyle(ChatFormatting.RED));
+         lines.add(Component.translatable("neo.enchant.lure_bugged").withStyle(ChatFormatting.RED));
       } else {
-         addLine(lines, EnchantEffects.lureReduction(e), "待ち時間短縮: 約%.0f秒");
+         addLine(lines, EnchantEffects.lureReduction(e), "lure", "%.0f");
       }
    };
 
    /** エンチャント効果の表示規則。表示順 = 並び順。 */
    private static final List<Line> LINES = List.of(
-        withStack(EnchantEffects::unbreakingSurvivalChance, "耐久が減らない確率: %.1f%%"),
-        of(EnchantEffects::sharpnessBonus, "追加ダメージ: +%.1f"),
-        of(EnchantEffects::smiteBonus, "対アンデッド追加ダメージ: +%.1f"),
-        of(EnchantEffects::baneOfArthropodsBonus, "対昆虫系追加ダメージ: +%.1f"),
-        of(EnchantEffects::impalingBonus, "対水生モブ追加ダメージ: +%.1f"),
-        of(EnchantEffects::fireAspectDuration, "燃焼時間: %.0f秒"),
-        withStack(EnchantEffects::sweepingEdgePercent, "範囲攻撃ダメージ: 通常の%.0f%%"),
-        withStack(EnchantEffects::fishingRodSweepingRadius, "命中半径 +%.0fm"),
-        of(EnchantEffects::thornsChance, "反撃確率: %.0f%%"),
-        of(EnchantEffects::thornsFixedDamage, "反撃ダメージ: %.0f(固定、通常のランダム1~5から変化)"),
-        of(EnchantEffects::knockbackBonus, "ノックバック増加: 約+%.0fブロック(参考値)"),
-        of(EnchantEffects::punchBonus, "ノックバック増加: 約+%.0fブロック(参考値)"),
-        of(EnchantEffects::riptideDistance, "飛距離: 約%.0fブロック"),
-        of(EnchantEffects::loyaltyReturnSpeed, "帰還速度: 約%.0fブロック/秒(参考値)"),
-        of(EnchantEffects::protectionPercent, "防御軽減率: %.0f%%"),
-        of(EnchantEffects::fireProtectionPercent, "火属性ダメージ軽減率: %.0f%%"),
-        of(EnchantEffects::blastProtectionPercent, "爆発ダメージ軽減率: %.0f%%"),
-        of(EnchantEffects::projectileProtectionPercent, "飛び道具ダメージ軽減率: %.0f%%"),
-        of(EnchantEffects::featherFallingPercent, "落下ダメージ軽減率: %.0f%%"),
-        of(EnchantEffects::efficiencyBonus, "採掘速度ボーナス: +%.0f(適した道具でのみ有効)"),
-        withStack(EnchantEffects::axeShieldDisableChance, "盾を無効化する確率: %.0f%%"),
-        of(EnchantEffects::powerPercent, "矢のダメージ増加: +%.0f%%(クロスボウには通常適用外)"),
-        of(EnchantEffects::piercingCount, "追加貫通数: +%.0f体"),
-        of(EnchantEffects::quickChargeReduction, "装填時間短縮: 約%.2f秒(参考値)"),
-        of(EnchantEffects::depthStriderPercent, "水中減速の軽減率: %.1f%%"),
-        of(EnchantEffects::frostWalkerRadius, "凍結半径: %.0fブロック"),
-        of(EnchantEffects::soulSpeedPercent, "ソウルサンド上の速度増加: +%.1f%%"),
-        of(EnchantEffects::swiftSneakPercent, "スニーク速度増加: +%.0f%%"),
+        withStack(EnchantEffects::unbreakingSurvivalChance, "unbreaking", "%.1f"),
+        of(EnchantEffects::sharpnessBonus, "sharpness", "%.1f"),
+        of(EnchantEffects::smiteBonus, "smite", "%.1f"),
+        of(EnchantEffects::baneOfArthropodsBonus, "bane_of_arthropods", "%.1f"),
+        of(EnchantEffects::impalingBonus, "impaling", "%.1f"),
+        of(EnchantEffects::fireAspectDuration, "fire_aspect", "%.0f"),
+        withStack(EnchantEffects::sweepingEdgePercent, "sweeping_edge", "%.0f"),
+        withStack(EnchantEffects::fishingRodSweepingRadius, "fishing_rod_sweeping", "%.0f"),
+        of(EnchantEffects::thornsChance, "thorns_chance", "%.0f"),
+        of(EnchantEffects::thornsFixedDamage, "thorns_damage", "%.0f"),
+        of(EnchantEffects::knockbackBonus, "knockback", "%.0f"),
+        of(EnchantEffects::punchBonus, "punch", "%.0f"),
+        of(EnchantEffects::riptideDistance, "riptide", "%.0f"),
+        of(EnchantEffects::loyaltyReturnSpeed, "loyalty", "%.0f"),
+        of(EnchantEffects::protectionPercent, "protection", "%.0f"),
+        of(EnchantEffects::fireProtectionPercent, "fire_protection", "%.0f"),
+        of(EnchantEffects::blastProtectionPercent, "blast_protection", "%.0f"),
+        of(EnchantEffects::projectileProtectionPercent, "projectile_protection", "%.0f"),
+        of(EnchantEffects::featherFallingPercent, "feather_falling", "%.0f"),
+        of(EnchantEffects::efficiencyBonus, "efficiency", "%.0f"),
+        withStack(EnchantEffects::axeShieldDisableChance, "axe_shield_disable", "%.0f"),
+        of(EnchantEffects::powerPercent, "power", "%.0f"),
+        of(EnchantEffects::piercingCount, "piercing", "%.0f"),
+        of(EnchantEffects::quickChargeReduction, "quick_charge", "%.2f"),
+        of(EnchantEffects::depthStriderPercent, "depth_strider", "%.1f"),
+        of(EnchantEffects::frostWalkerRadius, "frost_walker", "%.0f"),
+        of(EnchantEffects::soulSpeedPercent, "soul_speed", "%.1f"),
+        of(EnchantEffects::swiftSneakPercent, "swift_sneak", "%.0f"),
         LURE,
-        of(EnchantEffects::luckOfTheSeaPercent, "宝物率増加: 約+%.1f%%(参考値)")
+        of(EnchantEffects::luckOfTheSeaPercent, "luck_of_the_sea", "%.1f")
    );
 
    /** ItemStack#getTooltipLines の戻り値に呼ばれる (neo.mixin.MixinItemStack)。設定 enchant_tooltip が OFF なら何もしない。 */
@@ -75,18 +76,19 @@ public final class EnchantToolTipClient {
    }
 
    /** スタックに依存しない効果。 */
-   private static Line of(ToDoubleFunction<EnchantLevels> effect, String format) {
-      return (lines, stack, e) -> addLine(lines, effect.applyAsDouble(e), format);
+   private static Line of(ToDoubleFunction<EnchantLevels> effect, String key, String number) {
+      return (lines, stack, e) -> addLine(lines, effect.applyAsDouble(e), key, number);
    }
 
    /** スタック(道具の種類)に依存する効果。 */
-   private static Line withStack(ToDoubleBiFunction<ItemStack, EnchantLevels> effect, String format) {
-      return (lines, stack, e) -> addLine(lines, effect.applyAsDouble(stack, e), format);
+   private static Line withStack(ToDoubleBiFunction<ItemStack, EnchantLevels> effect, String key, String number) {
+      return (lines, stack, e) -> addLine(lines, effect.applyAsDouble(stack, e), key, number);
    }
 
-   private static void addLine(List<Component> lines, double value, String format) {
+   /** 数値は number の書式で整え、文は翻訳 (neo.enchant.&lt;key&gt;) から作る。 */
+   private static void addLine(List<Component> lines, double value, String key, String number) {
       if (value >= 0.0) {
-         lines.add(Component.literal(String.format(format, value)).withStyle(ChatFormatting.GRAY));
+         lines.add(Component.translatable("neo.enchant." + key, String.format(Locale.ROOT, number, value)).withStyle(ChatFormatting.GRAY));
       }
    }
 }

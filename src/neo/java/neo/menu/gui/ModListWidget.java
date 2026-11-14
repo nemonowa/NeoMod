@@ -116,12 +116,6 @@ public class ModListWidget extends ObjectSelectionList<ModListEntry> implements 
         super.clearEntries();
     }
 
-    protected void remove(int index) {
-        ModListEntry entry = this.children().get(index);
-        addedMods.remove(entry.mod);
-        super.removeEntry(entry);
-    }
-
     public void finalizeInit() {
         filter(parent.getSearchInput(), true, true);
         if (restoreScrollY != null) {

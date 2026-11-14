@@ -12,13 +12,14 @@ import net.minecraft.resources.Identifier;
 import org.jspecify.annotations.NullMarked;
 import org.lwjgl.sdl.SDLScancode;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import neo.util.NeoAssets;
 
 @NullMarked
 public class ParentEntry extends ModListEntry {
+    private Component childrenText;
+    private String childrenSearch;
     private static final Identifier PARENT_MOD_TEXTURE = Identifier.fromNamespaceAndPath(NeoAssets.NAMESPACE, "textures/gui/parent_mod.png");
     protected List<Mod> children;
     protected ModListWidget list;
@@ -44,10 +45,16 @@ public class ParentEntry extends ModListEntry {
         int y = this.getContentY() + this.getYOffset();
         int childrenBadgeHeight = font.lineHeight;
         int childrenBadgeWidth = font.lineHeight;
-        int shownChildren = ModSearch.search(list.getParent()::getModHasConfigScreen, list.getParent().getSearchInput(), getChildren()).size();
-        Component str = shownChildren == children.size() ?
-                Component.literal(String.valueOf(shownChildren)) :
-                Component.literal(shownChildren + "/" + children.size());
+        // 子の件数は検索語が変わった時だけ数え直す (毎フレーム、子ごとに検索しない)
+        String search = list.getParent().getSearchInput();
+        if (this.childrenText == null || !search.equals(this.childrenSearch)) {
+            int shownChildren = ModSearch.search(list.getParent()::getModHasConfigScreen, search, getChildren()).size();
+            this.childrenText = shownChildren == children.size() ?
+                    Component.literal(String.valueOf(shownChildren)) :
+                    Component.literal(shownChildren + "/" + children.size());
+            this.childrenSearch = search;
+        }
+        Component str = this.childrenText;
         int childrenWidth = font.width(str) - 1;
         if (childrenBadgeWidth < childrenWidth + 4) {
             childrenBadgeWidth = childrenWidth + 4;
@@ -176,14 +183,6 @@ public class ParentEntry extends ModListEntry {
         }
 
         return super.keyPressed(input);
-    }
-
-    public void addChildren(List<Mod> children) {
-        this.children.addAll(children);
-    }
-
-    public void addChildren(Mod... children) {
-        this.children.addAll(Arrays.asList(children));
     }
 
     public List<Mod> getChildren() {

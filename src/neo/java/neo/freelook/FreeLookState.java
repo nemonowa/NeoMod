@@ -39,11 +39,6 @@ public final class FreeLookState {
         NeoClientEvents.registerEndClientTick(FreeLookState::onClientTick);
     }
 
-    /** いま自由視点か。OFF のとき・自由視点でないときは false で、フックはここで即戻る (設定も引かない)。 */
-    public static boolean isActive() {
-        return active;
-    }
-
     // ---- F5 ----
 
     /**
@@ -128,8 +123,10 @@ public final class FreeLookState {
 
     private static void onClientTick(Minecraft client) {
         if (client.player == null || client.level == null) {
-            // ワールドを離れた: カメラの種類は戻さない (次のワールドに持ち越さない)
-            active = false;
+            // ワールドを離れた: 自由視点の三人称を次のワールドに持ち越さないよう、入る前の視点へ戻す
+            if (active) {
+                deactivate(client);
+            }
             pressedAtMillis = 0L;
             tapPending = false;
             return;

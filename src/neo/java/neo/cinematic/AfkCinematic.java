@@ -25,7 +25,7 @@ import java.util.Random;
  * 独自実装 (参考: Ji AFK Cinematic 2.3.1 の動作 (MIT、jiory_)。コードは取り込んでいない。音楽とキー割り当ては持たない)。
  *
  * 動作:
- *  - 画面を開いていない状態で、キー・マウスの操作が {@link #idleTicks()} 続けて無いと始まる。放置の判定は Mixin から届く操作 (onActivity) と、毎 tick の数え上げ
+ *  - 画面を開いていない状態で、キー・マウスの操作が {@link #idleTicks()} 続けて無いと始まる。放置の判定は Mixin から届く操作 (onActivity) と、1 秒ごとの数え上げ
  *  - F1 の扱い (バニラの F1 の処理 Hud#toggle を、neo.mixin.MixinGuiCinematic が肩代わりする): GUI を隠した状態でもう一度 F1 を押すと、GUI を出さずにシネマティックが始まる。
  *    シネマティック中に F1 を押すと、シネマティックが終わって GUI が戻る (放置で始まった場合も)。F1 は放置の解除としては数えない (上の onKeyPress)
  *    手動で始めた場合は、ほかの操作で終わっても GUI が出た通常の画面に戻る (F1 で隠した状態は戻さない)
@@ -44,6 +44,9 @@ public final class AfkCinematic {
     private static final Random RANDOM = new Random();
 
     private static int idleTicks;
+    /** 動いていない間の判定の間隔 (tick) と、その数え上げ。 */
+    private static final int CHECK_INTERVAL_TICKS = 20;
+    private static int checkTicks;
     private static boolean lockedOut;
     private static boolean active;
 
@@ -114,6 +117,11 @@ public final class AfkCinematic {
     // ---- 毎 tick ----
 
     private static void onClientTick(Minecraft client) {
+        // 動いていない間の判定は 1 秒に 1 回でよい (始まる時刻が最大 1 秒ずれるだけ。P-45)。動いている間はカメラのため毎 tick
+        if (!active && ++checkTicks < CHECK_INTERVAL_TICKS) {
+            return;
+        }
+        checkTicks = 0;
         LocalPlayer player = client.player;
         if (!ModManagerConfig.AFK_CINEMATIC.getValue() || player == null || client.level == null) {
             if (idleTicks != 0 || active || lockedOut) {
@@ -140,7 +148,8 @@ public final class AfkCinematic {
             return;
         }
 
-        if (++idleTicks >= idleTicks()) {
+        idleTicks += CHECK_INTERVAL_TICKS;
+        if (idleTicks >= idleTicks()) {
             start(client, player);
         }
     }

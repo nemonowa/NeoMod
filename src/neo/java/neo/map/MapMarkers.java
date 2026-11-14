@@ -3,6 +3,7 @@ package neo.map;
 import neo.data.NeoData;
 import neo.menu.config.ModManagerConfig;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
@@ -44,20 +45,16 @@ import java.util.Set;
  *   プレイヤーが構造物の範囲に近づいたものだけを「発見済み」にする (まだ遠くのものは出ない = ネタバレしない。StructureDiscovery)。
  * 旗: ロード済みのチャンクにある旗 (BannerBlockEntity) を、クライアント側で見つけて記憶する。チャンクが読み込まれていて旗が無くなっていれば、
  *   バニラの MapItemSavedData#checkBanners と同じく目印を消す。
- * 設定 map_auto_markers が OFF のときは、走査も保存もせず、tick では設定を引いて戻るだけ。
+ * 調べるのはマップを開いた時だけ (毎 tick は何もしない)。設定 map_auto_markers が OFF のときは、開いた時も調べない。
  */
 final class MapMarkers {
     private static final String DATA_PATH = "map/markers";
-    /** 旗の走査: 半径 (チャンク)、1 tick に調べる数、取り直しの間隔 (近い / 遠い)。 */
+    /** 旗を調べる半径 (チャンク)。マップを開いた時に、この範囲のロード済みチャンクを 1 回だけ調べる。 */
     private static final int BANNER_RADIUS_CHUNKS = 8;
-    private static final int BANNER_CHUNKS_PER_TICK = 2;
-    private static final int BANNER_NEAR_RESCAN_TICKS = 200;
-    private static final int BANNER_FAR_RESCAN_TICKS = 2400;
     /** 覚えておく旗の上限 (バニラの地図の装飾の上限 256 より大きく、メモリと保存の大きさを抑える)。 */
     private static final int MAX_BANNERS = 4096;
     /** 手持ちの地図で、装飾を「正立」に描く回転 (バニラは旗・目的地に 180° = 8 を使う)。 */
     static final int UPRIGHT = 8;
-    private static final int[][] OFFSETS = buildOffsets();
 
     private record Structure(String dimension, String iconKey, int x, int z) {
         String key() {
@@ -75,14 +72,10 @@ final class MapMarkers {
     private final Map<String, Structure> structures = new HashMap<>();
     private final Map<String, Banner> banners = new HashMap<>();
     /** チャンク → そこにある旗のキー (チャンクを調べ直したとき、無くなった旗を消すため)。 */
-    private final Map<Long, Set<String>> bannersByChunk = new HashMap<>();
-    private final Map<Long, Long> lastBannerScan = new HashMap<>();
+    private final Map<String, Map<Long, Set<String>>> bannersByChunk = new HashMap<>();
     private boolean dirty;
     private int version;
-    private int bannerCursor;
-    private long ticks;
     private boolean structureScanRunning;
-    private String sessionDimension = "";
 
     MapMarkers(Path dataFolder) {
         this.dataFolder = dataFolder;
@@ -94,63 +87,35 @@ final class MapMarkers {
         return version;
     }
 
-    // ---- 毎 tick ----
+    // ---- マップを開いた時だけ ----
 
-    void tick(Minecraft client) {
+    /**
+     * マップ (M キーの画面) を開いた時に 1 回だけ呼ぶ: 周りのロード済みチャンクの旗を調べ、構造物も調べる (毎 tick は何もしない)。
+     * 開いていない間に近づいた・壊した物は、次に開いた時にその場の周りにあれば反映される。
+     */
+    void onMapOpened(Minecraft client) {
         ClientLevel level = client.level;
-        if (level == null || client.player == null) {
+        if (level == null || client.player == null || !ModManagerConfig.MAP_AUTO_MARKERS.getValue()) {
             return;
         }
 
         String dimension = level.dimension().identifier().toString();
-        if (!dimension.equals(sessionDimension)) {
-            sessionDimension = dimension;
-            lastBannerScan.clear();
-            bannerCursor = 0;
+        int playerChunkX = client.player.blockPosition().getX() >> 4;
+        int playerChunkZ = client.player.blockPosition().getZ() >> 4;
+        for (int dx = -BANNER_RADIUS_CHUNKS; dx <= BANNER_RADIUS_CHUNKS; dx++) {
+            for (int dz = -BANNER_RADIUS_CHUNKS; dz <= BANNER_RADIUS_CHUNKS; dz++) {
+                int chunkX = playerChunkX + dx;
+                int chunkZ = playerChunkZ + dz;
+                ChunkAccess access = level.getChunk(chunkX, chunkZ, ChunkStatus.FULL, false);
+                if (access instanceof LevelChunk chunk && !chunk.isEmpty()) {
+                    updateChunkBanners(level, dimension, chunk, ChunkPos.pack(chunkX, chunkZ));
+                }
+            }
         }
-
-        ticks++;
-        if (!ModManagerConfig.MAP_AUTO_MARKERS.getValue()) {
-            return;
-        }
-
-        scanBanners(client, level, dimension);
-        if (ticks % StructureDiscovery.SCAN_INTERVAL_TICKS == 0) {
-            requestStructureScan(client, level.dimension());
-        }
+        requestStructureScan(client, level.dimension());
     }
 
     // ---- 旗 ----
-
-    private void scanBanners(Minecraft client, ClientLevel level, String dimension) {
-        int playerChunkX = client.player.blockPosition().getX() >> 4;
-        int playerChunkZ = client.player.blockPosition().getZ() >> 4;
-        for (int n = 0; n < BANNER_CHUNKS_PER_TICK; n++) {
-            int[] offset = OFFSETS[bannerCursor];
-            bannerCursor = (bannerCursor + 1) % OFFSETS.length;
-            int chunkX = playerChunkX + offset[0];
-            int chunkZ = playerChunkZ + offset[1];
-            long chunkKey = ChunkPos.pack(chunkX, chunkZ);
-            boolean near = Math.max(Math.abs(offset[0]), Math.abs(offset[1])) <= 2;
-            Long last = lastBannerScan.get(chunkKey);
-            if (last != null && ticks - last < (near ? BANNER_NEAR_RESCAN_TICKS : BANNER_FAR_RESCAN_TICKS)) {
-                continue;
-            }
-
-            ChunkAccess access = level.getChunk(chunkX, chunkZ, ChunkStatus.FULL, false);
-            if (!(access instanceof LevelChunk chunk) || chunk.isEmpty()) {
-                continue;
-            }
-
-            lastBannerScan.put(chunkKey, ticks);
-            updateChunkBanners(level, dimension, chunk, chunkKey);
-        }
-
-        if ((ticks & 2047L) == 0L) {
-            lastBannerScan.keySet().removeIf(key -> Math.abs(ChunkPos.getX(key) - playerChunkX) > BANNER_RADIUS_CHUNKS + 4
-                || Math.abs(ChunkPos.getZ(key) - playerChunkZ) > BANNER_RADIUS_CHUNKS + 4);
-        }
-    }
 
     /** チャンクの旗を見つけて記憶し、無くなっていた旗は消す。 */
     private void updateChunkBanners(ClientLevel level, String dimension, LevelChunk chunk, long chunkKey) {
@@ -176,7 +141,9 @@ final class MapMarkers {
             }
         }
 
-        Set<String> previousKeys = bannersByChunk.get(chunkKey);
+        // チャンクの座標は次元ごとに分ける (同じ座標の別の次元の旗を「無くなった」として消さない)
+        Map<Long, Set<String>> byChunk = bannersByChunk.computeIfAbsent(dimension, d -> new HashMap<>());
+        Set<String> previousKeys = byChunk.get(chunkKey);
         if (previousKeys != null) {
             for (String key : previousKeys) {
                 if (!found.contains(key) && banners.remove(key) != null) {
@@ -186,17 +153,24 @@ final class MapMarkers {
         }
 
         if (found.isEmpty()) {
-            bannersByChunk.remove(chunkKey);
+            byChunk.remove(chunkKey);
         } else {
-            bannersByChunk.put(chunkKey, found);
+            byChunk.put(chunkKey, found);
         }
     }
 
-    // ---- 構造物 (シングルのみ) ----
+    // ---- 構造物 ----
 
+    /** シングル・LAN のホストは内蔵サーバーを直接調べ、それ以外はサーバーへ 1 回だけ頼む (MOD の無いサーバーは読み捨てる)。 */
     private void requestStructureScan(Minecraft client, ResourceKey<Level> dimension) {
         MinecraftServer server = client.getSingleplayerServer();
-        if (server == null || structureScanRunning) {
+        if (server == null) {
+            if (client.getConnection() != null) {
+                client.getConnection().send(new ServerboundCustomPayloadPacket(new StructureScanRequestPayload()));
+            }
+            return;
+        }
+        if (structureScanRunning) {
             return;
         }
 
@@ -205,12 +179,18 @@ final class MapMarkers {
         double playerZ = client.player.getZ();
         String dimensionId = dimension.identifier().toString();
         server.execute(() -> {
-            ServerLevel level = server.getLevel(dimension);
-            List<StructureMarkersPayload.Entry> found = level == null ? List.of() : StructureDiscovery.scan(level, playerX, playerZ);
-            client.execute(() -> {
-                structureScanRunning = false;
-                addStructures(dimensionId, found);
-            });
+            List<StructureMarkersPayload.Entry> found = List.of();
+            try {
+                ServerLevel level = server.getLevel(dimension);
+                if (level != null) found = StructureDiscovery.scan(level, playerX, playerZ);
+            } finally {
+                // 失敗しても次の走査ができるように、必ず走査中の印を戻す
+                List<StructureMarkersPayload.Entry> result = found;
+                client.execute(() -> {
+                    structureScanRunning = false;
+                    addStructures(dimensionId, result);
+                });
+            }
         });
     }
 
@@ -329,20 +309,8 @@ final class MapMarkers {
             Banner banner = new Banner(dimension, tag.getIntOr("x", 0), tag.getIntOr("y", 0), tag.getIntOr("z", 0),
                 tag.getIntOr("color", 0), tag.getStringOr("name", ""));
             banners.put(banner.key(), banner);
-            bannersByChunk.computeIfAbsent(ChunkPos.pack(banner.x() >> 4, banner.z() >> 4), key -> new HashSet<>()).add(banner.key());
+            bannersByChunk.computeIfAbsent(dimension, d -> new HashMap<>())
+                .computeIfAbsent(ChunkPos.pack(banner.x() >> 4, banner.z() >> 4), key -> new HashSet<>()).add(banner.key());
         }
-    }
-
-    /** 近い順に並べた、プレイヤー中心の相対チャンク座標 (旗の走査用)。 */
-    private static int[][] buildOffsets() {
-        List<int[]> offsets = new ArrayList<>();
-        for (int x = -BANNER_RADIUS_CHUNKS; x <= BANNER_RADIUS_CHUNKS; x++) {
-            for (int z = -BANNER_RADIUS_CHUNKS; z <= BANNER_RADIUS_CHUNKS; z++) {
-                offsets.add(new int[]{x, z});
-            }
-        }
-
-        offsets.sort(java.util.Comparator.comparingInt(o -> o[0] * o[0] + o[1] * o[1]));
-        return offsets.toArray(new int[0][]);
     }
 }

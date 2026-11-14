@@ -25,7 +25,7 @@
 - **P-14 パッケージ循環禁止**: Mod Menu 内部は一方向 `util ← mod ← config ← service ← gui ← menu / mixin / api ← fabric`。クラス間の循環は `gui` 内の一覧とその行 (`ModListWidget` 系 6 クラス) **だけ**が意図的に許可されている。
 - **P-15 ローダー依存の隔離**: ローダー固有の機能は抽象 (`ModManagerPlatform` / `IconSource` / `ModContact` など) の後ろに置き、Fabric 実装は `neo.fabric` に集める。新しいローダー依存を `src/neo` に持ち込まない。
 - **P-16 Mixin**: Mixin クラスは `neo.mixin` (`src/main`) **だけ**。**薄く**する — ロジックは `src/neo` 側のクラスに置き、Mixin はそれを呼ぶだけ。設定は `mixins.neo.json` の **1 本**で、クラスと一覧を必ず一致させる。
-- **P-17 Forge**: 当面の対象は **Mod Menu 本体だけ**。Spawner Info / EnchantToolTip / Mixin 依存部は対象外。Forge のために `src/neo` を汚さない。
+- **P-17 Forge**: 基本は **Fabric 用**。Forge は**互換の対応**で、Forge のイベントだけで簡単に作れる部分をできる限り対応する (今は Mod Menu 本体・同梱パック・配布ワールドのボタン)。Mixin 前提の機能 (Spawner Info / EnchantToolTip など) は対象外で、無理に移さない。Forge のために `src/neo` を汚さない (Forge から呼ぶ入口を足すのはよい)。
 
 ## 3. データの保存 (共通規約)
 
@@ -43,7 +43,7 @@
 - **P-23 バニラの採番に触らない**: バニラの `last_id.dat` (`MapIndex`) など、サーバーが同じファイルをキャッシュして持つ採番・索引を**こちらから進めない** (サーバーが作るデータを上書きするため)。Mod 側の ID は `MapStore.ID_BASE` (1000) 以上の別範囲で採番し、同じ ID のファイルが既にあれば飛ばす (`MapStore#nextFreeId`)。ただし飛ばせるのは採番した時点でディスクにあるファイルだけで、あとからバニラが同じ ID を採番する場合 (地図を 1000 枚以上作るワールド) や、シングルでサーバーが未保存のままメモリに持っているデータとは重なりうる (既知の残るリスク)。
 - **P-24 書き込みは安全に**: 一時ファイルに書いてから置き換える (`NeoData` が行う)。ディスク書き込みでクライアントを止めない (非同期 / 間引き)。ワールドを離れるとき・終了時にも保存する。
 - **P-25 置き場**: シングルは実際のワールドの `data` フォルダ (`getWorldPath(LevelResource.DATA)`)、マルチはワールドが無いので `gameDir/neo/<サーバー>/data/` に同じ構造。ファイル名・パスは必ずサニタイズする。
-- **P-26 例外**: `mods/NeoMods.log` は起動ログ (最新の起動のみ・上書き) でデータではない。`ModsScreen` の「ドロップした Mod の jar を mods フォルダへコピー」(Mod Menu 本来の機能) はユーザー操作によるファイルコピーで、データの保存ではない。設定 (`options.txt` の `neo_` 行) の読み書きは `ModManagerConfigManager` (バニラの行は触らない)。それ以外の書き込みは `NeoData` か バニラの保管 (`SavedDataStorage`) を使う。
+- **P-26 例外**: `mods/NeoMods.log` は起動ログ (最新の起動のみ・上書き) でデータではない。`ModsScreen` の「ドロップした Mod の jar を mods フォルダへコピー」(Mod Menu 本来の機能) はユーザー操作によるファイルコピーで、データの保存ではない。配布ワールドの画面 (`neo.bundle.WorldInstaller`) で「取得」を押した時に、取得したワールドを `saves/` の新しいフォルダへ入れるのも同じ扱い (既にあるフォルダは上書きしない)。設定 (`options.txt` の `neo_` 行) の読み書きは `ModManagerConfigManager` (バニラの行は触らない)。それ以外の書き込みは `NeoData` か バニラの保管 (`SavedDataStorage`) を使う。
 
 ## 4. バニラ順守
 
@@ -55,9 +55,10 @@
 ## 5. 機能の追加と設定
 
 - **P-40 機能のスイッチは Mod Menu の設定に集約**: 内蔵機能の ON/OFF は `ModManagerConfig` の `BooleanConfigOption` で持つ。設定画面は `ModManagerConfig` の項目を自動で並べるので、UI の追加コードは要らない。`option.modmenu.<key>` と `.true` / `.false` の翻訳を `en_us` / `ja_jp` に必ず足す。
-- **P-41 既定値** (この表の対象は「この Mod が内蔵する機能」。Mod Menu 本来の設定 — 並べ替え・バッジ・ファイル専用設定・タイトル画面の Mods ボタンの位置 (既定は「Realms を置換」。ユーザーが明示した) など — は対象外): 既定 **ON なのは 12 個だけ**: 進捗画面の拡大 (`large_advancements`)、クリックコマンドの確認省略 (`skip_command_confirmation`)、ズーム (`zoom`)、インベントリを開いても移動 (`inventory_move`。ユーザーが「既定 ON」と明示した)、進捗画面とインベントリの直接切り替え (`screen_switch`。ユーザーが修正を求めた)、3D スキンレイヤー (`skin_layers`。ユーザーが「規定は ON」と明示した)、ワールドマップ (`world_map`) と、その目印の自動表示 (`map_auto_markers`。構造物と旗を 1 つに統合。ユーザーが「自動で出す」と明示し、統合を指示した)、F5 自由視点 (`free_look`。ユーザーが「規定 ON」と明示した)、サウンドブラウザ (`sound_browser`。ユーザーが「既定 ON」を選んだ)、AFK シネマティック (`afk_cinematic`。ユーザーが「既定で放置 ON」と明示した。放置時間は後に 30 秒、さらに 3 分 (既定) へ変更し、設定のスライダー `afk_cinematic_idle` (10 秒単位、10 秒〜10 分) で変えられる)、旧版の騎乗位置 (`legacy_ride_position`)。**それ以外はすべて既定 OFF** (ツールチップ・スポナー情報など)。新しい機能の既定は、**ユーザーが明示しない限り OFF**。既定を変えるときは、この表・`docs/development.md`・`tools/check_rules.py` を揃えて直す。
+- **P-41 既定値** (この表の対象は「この Mod が内蔵する機能」。Mod Menu 本来の設定 — 並べ替え・バッジ・ファイル専用設定・タイトル画面の Mods ボタンの位置 (既定は「Realms を置換」。ユーザーが明示した) など — は対象外): 既定 **ON なのは 13 個だけ**: 進捗画面の拡大 (`large_advancements`)、クリックコマンドの確認省略 (`skip_command_confirmation`)、ズーム (`zoom`)、インベントリを開いても移動 (`inventory_move`。ユーザーが「既定 ON」と明示した)、進捗画面とインベントリの直接切り替え (`screen_switch`。ユーザーが修正を求めた)、3D スキンレイヤー (`skin_layers`。ユーザーが「規定は ON」と明示した)、ワールドマップ (`world_map`) と、その目印の自動表示 (`map_auto_markers`。構造物と旗を 1 つに統合。ユーザーが「自動で出す」と明示し、統合を指示した)、F5 自由視点 (`free_look`。ユーザーが「規定 ON」と明示した)、サウンドブラウザ (`sound_browser`。ユーザーが「既定 ON」を選んだ)、AFK シネマティック (`afk_cinematic`。ユーザーが「既定で放置 ON」と明示した。放置時間は後に 30 秒、さらに 3 分 (既定) へ変更し、設定のスライダー `afk_cinematic_idle` (10 秒単位、10 秒〜10 分) で変えられる)、旧版の騎乗位置 (`legacy_ride_position`)、ランダムエンティティの絵 (`random_entity_textures`)。**それ以外はすべて既定 OFF** (ツールチップ・スポナー情報など)。新しい機能の既定は、**ユーザーが明示しない限り OFF**。既定を変えるときは、この表・`docs/development.md`・`tools/check_rules.py` を揃えて直す。
+- **P-45 毎 tick・毎フレームの処理を足さない**: 周期処理は、動いている数 × 毎秒の回数の負荷になる。新しい処理は、まず**操作やイベントのきっかけ** (画面を開いた時・キーを押した時・受信した時・チャンクの読み込みなど) で書き、毎 tick・毎フレーム・一定間隔の処理は、それでしか作れない時だけにする (画面の描画のように見えている間だけ動く物を含め、結果は変わった時だけ作り直す)。例: ワールドマップの目印 (構造物・旗) は、マップを開いた時に周りだけを 1 回調べる。
 - **P-42 OFF は負荷にしない**: OFF のとき、毎フレーム・毎 tick・サーバー側の処理は**入口で打ち切る** (設定を 1 回引いて即 return)。OFF の間に割り当て・走査・保存・送信をしない。ON/OFF を切り替えたときに溜めた状態は捨てる。専用サーバーなど設定が届かない場所は、負荷の残りを文書に書く。
-- **P-43 キーバインドは最小限**: 設定で切り替えられるものはキーにしない。キーを持つのは**即時の操作で、設定では代替できないもの**だけ (現状: ワールドマップ = M、スポナーの「最寄りのみ表示」、NeoMods の設定画面を開く = @ キー)。カテゴリは `NeoKeyMappings.MAIN`。新しいキーを足す前にユーザーに確認する。
+- **P-43 キーバインドは最小限**: 設定で切り替えられるものはキーにしない。キーを持つのは**即時の操作で、設定では代替できないもの**だけ (現状: ワールドマップ = M、スポナーの「最寄りのみ表示」と「検知距離の表示の切り替え」(どちらも既定の割り当て無し)、NeoMods の設定画面を開く = @ キー)。カテゴリは `NeoKeyMappings.MAIN`。新しいキーを足す前にユーザーに確認する。
 - **P-44 参考にする他の Mod**: ユーザーが渡した jar は**動作の参考**にする。**コードを取り込まない** (独自実装)。ライセンス (WI Zoom は GPL-3.0-or-later など) を確認して README / 注記に書く。
 
 ## 6. サードパーティ
@@ -65,7 +66,6 @@
 - **P-50 不要なサードパーティを避ける**: 使ってよいのは、**Minecraft / Fabric Loader が既に同梱・提供しているもの**だけ: Minecraft 本体、Mojang のライブラリ (DFU・Brigadier・Blaze3D 等)、Gson・Guava・slf4j・commons-lang3・fastutil・joml・lwjgl・netty、Fabric Loader、Mixin、MixinExtras。それ以外のライブラリ・ツールを**追加しない** (追加が必要に見えたら、先にユーザーに確認する)。
 - **P-51 Fabric API は使わない**: Mixin と Fabric Loader の API で置き換える。jar-in-jar も使わない。
 - **P-52 UI ツールキットを持ち込まない**: AWT / Swing 等を使わない (起動時の Swing ポップアップは削除済み)。
-- **P-53 通信・収集をしない**: 外部への通信、テレメトリ、自動更新、利用状況の収集を入れない。
 - **P-54 開発用ツールは同梱しない**: デコンパイラ (Vineflower) や JDK、検査スクリプトは開発時のみ。成果物の jar に入れない。
 
 ## 7. Mixin
@@ -99,7 +99,7 @@
 2. [ ] `src/neo` にローダー依存を入れていない / `src/neo` → `src/main` の参照が無い / 分割パッケージ・パッケージ循環が無い (P-11〜14)
 3. [ ] 保存は `NeoData` かバニラの保管を通した。バニラの採番・ファイルに触れていない (P-20〜26)
 4. [ ] 機能スイッチは Mod Menu の設定 + `en_us` / `ja_jp` の翻訳。既定は P-41 どおり (新機能は OFF)
-5. [ ] OFF のときの負荷は入口で打ち切った (P-42)
+5. [ ] OFF のときの負荷は入口で打ち切った (P-42)。毎 tick・毎フレームの処理を必要以上に足していない (P-45)
 6. [ ] 新しいサードパーティ・Fabric API・UI ツールキットを足していない (P-50〜52)
 7. [ ] Mixin は薄く、`require` を明示し、注入先をバイトコードで確認した (P-60〜63)
 8. [ ] 実際の API (Minecraft jar + Mixin / MixinExtras / Fabric Loader / DFU / Brigadier のソース) に対して JDK 25 で完全にコンパイルし、エラー 0 (LWJGL SDL の 2 件を除く)。`python tools/check_rules.py` が違反 0

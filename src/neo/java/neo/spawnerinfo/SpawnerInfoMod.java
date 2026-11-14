@@ -3,6 +3,8 @@ package neo.spawnerinfo;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.Map;
+import java.util.UUID;
+import java.util.HashMap;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
@@ -32,45 +34,59 @@ public final class SpawnerInfoMod {
    private static int tickCounter = 0;
    /** NAME_CACHE を作ったときのリソースマネージャー。/reload で MinecraftServer#reloadResources が新しいものに差し替えるので、違っていたら NAME_CACHE を捨てる。 */
    private static ResourceManager cachedResourceManager;
+   /** 中身が変わらなくても送り直す間隔 (ミリ秒)。クライアントは 5 秒届かない物を捨てるので、それより短くする。 */
+   private static final long RESEND_MILLIS = 3000L;
    /**
-    * 送信してよいか。専用サーバーでは常に true (クライアントの設定は届かないため従来どおり送る)。
-    * シングル/LAN ホストでは、クライアント側 (SpawnerInfoClient) が設定に合わせて更新する。
-    * 設定が OFF の間は、サーバー側の走査・NBT 保存・送信をすべて省く。権限がゲームマスター以上でないプレイヤーには送らない。
+    * スポナー情報を画面に出している参加者 (SpawnerSubscribePayload で頼んできた人)。サーバーのスレッドだけが触る。
+    * 誰も出していない間は、走査・NBT の保存・送信をすべて省く (P-45)。権限がゲームマスター以上でない人には送らない。
     */
-   private static volatile boolean sendEnabled = true;
+   private static final Map<UUID, Map<Integer, Sent>> SUBSCRIBERS = new HashMap<>();
+
+   private record Sent(SpawnerDataPayload payload, long at) {}
 
    private SpawnerInfoMod() {
    }
 
-   public static void setSendEnabled(boolean enabled) {
-      sendEnabled = enabled;
+   /** ネットワークのスレッドから呼ばれる。処理はサーバーのスレッドで行う。 */
+   public static void onSubscribe(ServerPlayer player, SpawnerSubscribePayload payload) {
+      MinecraftServer server = player.level().getServer();
+      server.execute(() -> {
+         if (payload.subscribe()) {
+            SUBSCRIBERS.putIfAbsent(player.getUUID(), new HashMap<>());
+         } else {
+            SUBSCRIBERS.remove(player.getUUID());
+         }
+      });
    }
 
    public static void onServerTick(MinecraftServer server) {
-      if (!sendEnabled) {
-         return;
-      }
-
-      if (++tickCounter < UPDATE_INTERVAL_TICKS) {
+      if (SUBSCRIBERS.isEmpty() || ++tickCounter < UPDATE_INTERVAL_TICKS) {
          return;
       }
 
       tickCounter = 0;
-      for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+      long now = System.currentTimeMillis();
+      for (var it = SUBSCRIBERS.entrySet().iterator(); it.hasNext(); ) {
+         var subscriber = it.next();
+         ServerPlayer player = server.getPlayerList().getPlayer(subscriber.getKey());
+         if (player == null) {
+            it.remove(); // 抜けた人
+            continue;
+         }
          if (!PermissionGate.allowed(player)) {
             continue; // スポナー情報は権限 (ゲームマスター以上) のあるプレイヤーにだけ送る (専用サーバーでも同じ。ゲームモードは問わない)
          }
 
          ServerLevel level = player.level();
          AABB searchBox = player.getBoundingBox().inflate(SEARCH_RADIUS);
-
          for (MinecartSpawner minecart : level.getEntitiesOfClass(MinecartSpawner.class, searchBox, e -> true)) {
-            sendSpawnerData(server, player, minecart);
+            sendSpawnerData(server, player, minecart, subscriber.getValue(), now);
          }
+         subscriber.getValue().values().removeIf(sent -> now - sent.at() > RESEND_MILLIS * 4); // 見なくなった物の覚え書き
       }
    }
 
-   private static void sendSpawnerData(MinecraftServer server, ServerPlayer player, MinecartSpawner minecart) {
+   private static void sendSpawnerData(MinecraftServer server, ServerPlayer player, MinecartSpawner minecart, Map<Integer, Sent> sent, long now) {
       TagValueOutput output = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, server.registryAccess());
       minecart.getSpawner().save(output);
       CompoundTag nbt = output.buildResult();
@@ -88,7 +104,12 @@ public final class SpawnerInfoMod {
          nbt.getShortOr("RequiredPlayerRange", (short)0),
          nbt.getShortOr("SpawnRange", (short)0)
       );
-      // canSend の代替: 未導入クライアントは未知ペイロードを DiscardedPayload として捨てるので常に送る
+      // 中身が前に送った物と同じなら、送り直しの間隔が来るまで送らない
+      Sent previous = sent.get(minecart.getId());
+      if (previous != null && previous.payload().equals(payload) && now - previous.at() < RESEND_MILLIS) {
+         return;
+      }
+      sent.put(minecart.getId(), new Sent(payload, now));
       player.connection.send(new ClientboundCustomPayloadPacket(payload));
    }
 

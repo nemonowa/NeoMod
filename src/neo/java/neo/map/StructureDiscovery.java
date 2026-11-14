@@ -17,15 +17,16 @@ import net.minecraft.world.level.levelgen.structure.StructureStart;
 
 /**
  * プレイヤーが近づいた構造物を見つける (サーバー側)。構造物の配置はサーバーにしか無いので、
- * シングルはクライアントが内蔵サーバーで、マルチはサーバーが参加者ごとに走査して {@link StructureMarkersPayload} で送る。
+ * どちらもマップを開いた時だけ調べる (毎 tick・一定間隔では調べない)。シングルはクライアントが内蔵サーバーで、マルチは参加者の頼みにサーバーが応えて {@link StructureMarkersPayload} で送る。
  * サーバー側からも呼ばれるので、クライアント専用のクラスを参照しない (P-63)。
  */
 public final class StructureDiscovery {
     /** 構造物の範囲 (水平) にこの距離まで近づいたら発見済み (ブロック)。 */
     static final int DISCOVER_DISTANCE = 96;
     private static final int DISCOVER_CHUNK_RADIUS = DISCOVER_DISTANCE / 16 + 2;
-    static final int SCAN_INTERVAL_TICKS = 40;
-    private static int tickCounter;
+    private static final int REQUEST_INTERVAL_TICKS = 40;
+    /** 参加者ごとの、最後に頼みに応えた時刻 (サーバーのスレッドだけが触る)。 */
+    private static final Map<java.util.UUID, Long> LAST_REQUEST = new java.util.HashMap<>();
 
     private StructureDiscovery() {}
 
@@ -65,17 +66,21 @@ public final class StructureDiscovery {
         return Math.sqrt(dx * dx + dz * dz);
     }
 
-    /** 参加者へ送る。シングル・LAN のホスト本人は自分の内蔵サーバーを直接走査するので送らない。MOD の無いクライアントは読み捨てる。 */
-    public static void onServerTick(MinecraftServer server) {
-        if (++tickCounter < SCAN_INTERVAL_TICKS) {
-            return;
-        }
-
-        tickCounter = 0;
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            if (!server.isDedicatedServer() && server.isSingleplayerOwner(player.nameAndId())) {
-                continue;
+    /**
+     * マルチ: 参加者がマップを開いた時の頼み (StructureScanRequestPayload) に応えて、その人の周りを 1 回だけ調べて送る。
+     * ネットワークのスレッドから呼ばれるので、処理はサーバーのスレッドで行う。頼みの連打は 1 人 2 秒に 1 回までにする。
+     * シングル・LAN のホスト本人は、自分の内蔵サーバーを直接調べるので頼まない (MapMarkers)。
+     */
+    public static void onRequest(ServerPlayer player) {
+        MinecraftServer server = player.level().getServer();
+        server.execute(() -> {
+            long now = server.getTickCount();
+            Long last = LAST_REQUEST.get(player.getUUID());
+            if (last != null && now - last < REQUEST_INTERVAL_TICKS) {
+                return;
             }
+            LAST_REQUEST.put(player.getUUID(), now);
+            LAST_REQUEST.keySet().removeIf(id -> server.getPlayerList().getPlayer(id) == null); // 抜けた人の分を捨てる
 
             ServerLevel level = player.level();
             List<StructureMarkersPayload.Entry> found = scan(level, player.getX(), player.getZ());
@@ -83,6 +88,6 @@ public final class StructureDiscovery {
                 String dimension = level.dimension().identifier().toString();
                 player.connection.send(new ClientboundCustomPayloadPacket(new StructureMarkersPayload(dimension, found)));
             }
-        }
+        });
     }
 }

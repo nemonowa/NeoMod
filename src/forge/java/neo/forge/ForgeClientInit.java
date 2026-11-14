@@ -2,13 +2,16 @@ package neo.forge;
 
 import neo.event.NeoClientEvents;
 import neo.event.NeoKeyMappings;
+import neo.bundle.PresetWorldScreen;
 import neo.menu.ModManagerBootstrap;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.Button;
+import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.event.TickEvent;
 
-/** クライアント側の Forge 固有の配線 (Mod Menu 本体のみ)。 */
+/** クライアント側の Forge 固有の配線 (Mod Menu 本体と、配布ワールドのボタン)。 */
 final class ForgeClientInit {
     private ForgeClientInit() {}
 
@@ -26,6 +29,12 @@ final class ForgeClientInit {
         // Fabric 版では MixinMinecraft が呼んでいるクライアント tick。キー入力 (メニューを開く) に使われる。
         TickEvent.ClientTickEvent.Post.BUS.addListener(event -> {
             NeoClientEvents.fireEndClientTick(Minecraft.getInstance());
+        });
+
+        // 配布ワールドのボタン。Fabric 版の MixinScreen (画面の初期化) の代わり
+        ScreenEvent.Init.Post.BUS.addListener(event -> {
+            Button button = PresetWorldScreen.openButton(Minecraft.getInstance(), event.getScreen(), event.getScreen().width);
+            if (button != null) event.addListener(button);
         });
     }
 }
